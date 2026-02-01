@@ -1,0 +1,599 @@
+{
+    "name": "TouristSafetyApp",
+    "type": "directory",
+    "children": [
+        {
+            "name": ".bundle",
+            "type": "directory",
+            "children": [
+                {
+                    "name": "config",
+                    "type": "file"
+                }
+            ]
+        },
+        {
+            "name": ".eslintrc.js",
+            "type": "file"
+        },
+        {
+            "name": ".gitignore",
+            "type": "file"
+        },
+        {
+            "name": ".prettierrc.js",
+            "type": "file"
+        },
+        {
+            "name": ".watchmanconfig",
+            "type": "file"
+        },
+        {
+            "name": "android",
+            "type": "directory",
+            "children": [
+                {
+                    "name": "app",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "build.gradle",
+                            "type": "file"
+                        },
+                        {
+                            "name": "debug.keystore",
+                            "type": "file"
+                        },
+                        {
+                            "name": "proguard-rules.pro",
+                            "type": "file"
+                        },
+                        {
+                            "name": "src",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "main",
+                                    "type": "directory",
+                                    "children": [
+                                        {
+                                            "name": "AndroidManifest.xml",
+                                            "type": "file"
+                                        },
+                                        {
+                                            "name": "java",
+                                            "type": "directory",
+                                            "children": [
+                                                {
+                                                    "name": "com",
+                                                    "type": "directory",
+                                                    "children": [
+                                                        {
+                                                            "name": "touristsafetyapp",
+                                                            "type": "directory",
+                                                            "children": [
+                                                                {
+                                                                    "name": "MainActivity.kt",
+                                                                    "type": "file"
+                                                                },
+                                                                {
+                                                                    "name": "MainApplication.kt",
+                                                                    "type": "file"
+                                                                }
+                                                            ]
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "name": "res",
+                                            "type": "directory",
+                                            "children": [
+                                                {
+                                                    "name": "drawable",
+                                                    "type": "directory",
+                                                    "children": [
+                                                        {
+                                                            "name": "rn_edit_text_material.xml",
+                                                            "type": "file"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "name": "mipmap-hdpi",
+                                                    "type": "directory",
+                                                    "children": [
+                                                        {
+                                                            "name": "ic_launcher.png",
+                                                            "type": "file"
+                                                        },
+                                                        {
+                                                            "name": "ic_launcher_round.png",
+                                                            "type": "file"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "name": "mipmap-mdpi",
+                                                    "type": "directory",
+                                                    "children": [
+                                                        {
+                                                            "name": "ic_launcher.png",
+                                                            "type": "file"
+                                                        },
+                                                        {
+                                                            "name": "ic_launcher_round.png",
+                                                            "type": "file"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "name": "mipmap-xhdpi",
+                                                    "type": "directory",
+                                                    "children": [
+                                                        {
+                                                            "name": "ic_launcher.png",
+                                                            "type": "file"
+                                                        },
+                                                        {
+                                                            "name": "ic_launcher_round.png",
+                                                            "type": "file"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "name": "mipmap-xxhdpi",
+                                                    "type": "directory",
+                                                    "children": [
+                                                        {
+                                                            "name": "ic_launcher.png",
+                                                            "type": "file"
+                                                        },
+                                                        {
+                                                            "name": "ic_launcher_round.png",
+                                                            "type": "file"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "name": "mipmap-xxxhdpi",
+                                                    "type": "directory",
+                                                    "children": [
+                                                        {
+                                                            "name": "ic_launcher.png",
+                                                            "type": "file"
+                                                        },
+                                                        {
+                                                            "name": "ic_launcher_round.png",
+                                                            "type": "file"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "name": "values",
+                                                    "type": "directory",
+                                                    "children": [
+                                                        {
+                                                            "name": "strings.xml",
+                                                            "type": "file"
+                                                        },
+                                                        {
+                                                            "name": "styles.xml",
+                                                            "type": "file"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "build.gradle",
+                    "type": "file"
+                },
+                {
+                    "name": "gradle",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "wrapper",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "gradle-wrapper.jar",
+                                    "type": "file"
+                                },
+                                {
+                                    "name": "gradle-wrapper.properties",
+                                    "type": "file"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "gradle.properties",
+                    "type": "file"
+                },
+                {
+                    "name": "gradlew",
+                    "type": "file"
+                },
+                {
+                    "name": "gradlew.bat",
+                    "type": "file"
+                },
+                {
+                    "name": "settings.gradle",
+                    "type": "file"
+                }
+            ]
+        },
+        {
+            "name": "app.json",
+            "type": "file"
+        },
+        {
+            "name": "App.tsx",
+            "type": "file"
+        },
+        {
+            "name": "babel.config.js",
+            "type": "file"
+        },
+        {
+            "name": "Gemfile",
+            "type": "file"
+        },
+        {
+            "name": "index.js",
+            "type": "file"
+        },
+        {
+            "name": "ios",
+            "type": "directory",
+            "children": [
+                {
+                    "name": ".xcode.env",
+                    "type": "file"
+                },
+                {
+                    "name": "Podfile",
+                    "type": "file"
+                },
+                {
+                    "name": "TouristSafetyApp",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "AppDelegate.swift",
+                            "type": "file"
+                        },
+                        {
+                            "name": "Images.xcassets",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "AppIcon.appiconset",
+                                    "type": "directory",
+                                    "children": [
+                                        {
+                                            "name": "Contents.json",
+                                            "type": "file"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "name": "Contents.json",
+                                    "type": "file"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Info.plist",
+                            "type": "file"
+                        },
+                        {
+                            "name": "LaunchScreen.storyboard",
+                            "type": "file"
+                        },
+                        {
+                            "name": "PrivacyInfo.xcprivacy",
+                            "type": "file"
+                        }
+                    ]
+                },
+                {
+                    "name": "TouristSafetyApp.xcodeproj",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "project.pbxproj",
+                            "type": "file"
+                        },
+                        {
+                            "name": "xcshareddata",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "xcschemes",
+                                    "type": "directory",
+                                    "children": [
+                                        {
+                                            "name": "TouristSafetyApp.xcscheme",
+                                            "type": "file"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "jest.config.js",
+            "type": "file"
+        },
+        {
+            "name": "metro.config.js",
+            "type": "file"
+        },
+        {
+            "name": "package-lock.json",
+            "type": "file"
+        },
+        {
+            "name": "package.json",
+            "type": "file"
+        },
+        {
+            "name": "README.md",
+            "type": "file"
+        },
+        {
+            "name": "src",
+            "type": "directory",
+            "children": [
+                {
+                    "name": "App.js",
+                    "type": "file"
+                },
+                {
+                    "name": "assets",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "fonts",
+                            "type": "directory",
+                            "children": []
+                        },
+                        {
+                            "name": "icons",
+                            "type": "directory",
+                            "children": []
+                        },
+                        {
+                            "name": "images",
+                            "type": "directory",
+                            "children": []
+                        }
+                    ]
+                },
+                {
+                    "name": "components",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "buttons",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "PrimaryButton.js",
+                                    "type": "file"
+                                },
+                                {
+                                    "name": "SosButton.js",
+                                    "type": "file"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "cards",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "IncidentCard.js",
+                                    "type": "file"
+                                },
+                                {
+                                    "name": "ZoneStatusCard.js",
+                                    "type": "file"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "dialogs",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "ConfirmationDialog.js",
+                                    "type": "file"
+                                },
+                                {
+                                    "name": "ErrorDialog.js",
+                                    "type": "file"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "loaders",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "FullScreenLoader.js",
+                                    "type": "file"
+                                },
+                                {
+                                    "name": "Loader.js",
+                                    "type": "file"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "navigation",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "AppNavigator.js",
+                            "type": "file"
+                        },
+                        {
+                            "name": "AuthNavigator.js",
+                            "type": "file"
+                        }
+                    ]
+                },
+                {
+                    "name": "screens",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "auth",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "LoginScreen.js",
+                                    "type": "file"
+                                },
+                                {
+                                    "name": "RegisterScreen.js",
+                                    "type": "file"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "dashboard",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "DashboardScreen.js",
+                                    "type": "file"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "reports",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "IncidentHistoryScreen.js",
+                                    "type": "file"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "sos",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "SosScreen.js",
+                                    "type": "file"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "tracking",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "LocationTrackingScreen.js",
+                                    "type": "file"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "services",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "apiService.js",
+                            "type": "file"
+                        },
+                        {
+                            "name": "authService.js",
+                            "type": "file"
+                        },
+                        {
+                            "name": "iotService.js",
+                            "type": "file"
+                        },
+                        {
+                            "name": "locationService.js",
+                            "type": "file"
+                        },
+                        {
+                            "name": "sosService.js",
+                            "type": "file"
+                        }
+                    ]
+                },
+                {
+                    "name": "state",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "authSlice.js",
+                            "type": "file"
+                        },
+                        {
+                            "name": "incidentSlice.js",
+                            "type": "file"
+                        },
+                        {
+                            "name": "store.js",
+                            "type": "file"
+                        }
+                    ]
+                },
+                {
+                    "name": "utils",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "constants.js",
+                            "type": "file"
+                        },
+                        {
+                            "name": "helpers.js",
+                            "type": "file"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "tsconfig.json",
+            "type": "file"
+        },
+        {
+            "name": "__tests__",
+            "type": "directory",
+            "children": [
+                {
+                    "name": "App.test.tsx",
+                    "type": "file"
+                }
+            ]
+        }
+    ]
+}
