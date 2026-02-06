@@ -18,8 +18,29 @@ from app.services.incident_service import (
     get_incident_by_id,
     update_incident_status,
 )
+from app.services.incident_service import (
+    create_incident,
+    get_all_incidents,
+    get_incident_by_id,
+    update_incident_status,
+    get_incidents_by_tourist,
+)
+
 
 router = APIRouter(prefix="/incidents", tags=["Incidents"])
+
+# -------------------------
+# Tourist: My Incidents
+# -------------------------
+@router.get("/my", response_model=list[IncidentResponse])
+def my_incidents(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_tourist),
+):
+    return get_incidents_by_tourist(
+        db=db,
+        tourist_id=user.id
+    )
 
 
 # -------------------------

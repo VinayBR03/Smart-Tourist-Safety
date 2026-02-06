@@ -60,3 +60,14 @@ def update_incident_status(
     db.commit()
     db.refresh(incident)
     return incident
+
+def get_incidents_by_tourist(
+    db: Session,
+    tourist_id: int
+):
+    return (
+        db.query(Incident)
+        .filter(Incident.tourist_id == tourist_id)
+        .order_by(Incident.created_at.desc())
+        .all()
+    )
