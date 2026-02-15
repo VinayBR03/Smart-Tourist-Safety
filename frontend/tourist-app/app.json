@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "SentinelTour",
+    "name": "Sentinel Tour",
     "slug": "tourist-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/SentinelTour.jpg",
+    "icon": "./assets/images/SentinelTour new.png",
     "scheme": "touristapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -19,7 +19,12 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.touristapp",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
+      ]
     },
     "web": {
       "output": "static",
@@ -38,11 +43,18 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2c24cfa4-99ee-401a-b88e-68d93dd4ee20"
+      }
     }
   }
 }

@@ -6,9 +6,18 @@ export interface User {
   id: number;
   email: string;
   role: 'tourist' | 'authority';
-  full_name?: string;
-  phone?: string;
-  emergency_contact?: string;
+
+  full_name?: string | null;
+  phone?: string | null;
+  emergency_contact?: string | null;
+
+  blood_group?: string | null;
+  gender?: string | null;
+  nationality?: string | null;
+  date_of_birth?: string | null;
+  medical_conditions?: string | null;
+  allergies?: string | null;
+
   created_at?: string;
   updated_at?: string;
 }
@@ -27,7 +36,18 @@ export interface LoginCredentials {
 export interface RegisterData {
   email: string;
   password: string;
-  role: 'tourist' | 'authority';
+  role?: 'tourist' | 'authority';
+
+  full_name?: string;
+  phone?: string;
+  emergency_contact?: string;
+
+  blood_group?: string;
+  gender?: string;
+  nationality?: string;
+  date_of_birth?: string;
+  medical_conditions?: string;
+  allergies?: string;
 }
 
 // ==================== LOCATION TYPES ====================
@@ -51,7 +71,10 @@ export interface LocationUpdate {
 }
 
 // ==================== INCIDENT TYPES ====================
-export type IncidentStatus = 'pending' | 'investigating' | 'resolved';
+export type IncidentStatus =
+  | 'open'
+  | 'in_progress'
+  | 'resolved';
 
 export interface Incident {
   id: number;
@@ -78,15 +101,30 @@ export interface UpdateIncidentStatus {
 export interface TouristProfile {
   id: number;
   email: string;
+
   full_name: string | null;
   phone: string | null;
   emergency_contact: string | null;
+
+  blood_group: string | null;
+  gender: string | null;
+  nationality: string | null;
+  date_of_birth: string | null;
+  medical_conditions: string | null;
+  allergies: string | null;
 }
 
 export interface UpdateProfileData {
   full_name?: string;
   phone?: string;
   emergency_contact?: string;
+
+  blood_group?: string;
+  gender?: string;
+  nationality?: string;
+  date_of_birth?: string;
+  medical_conditions?: string;
+  allergies?: string;
 }
 
 // ==================== API RESPONSE TYPES ====================
@@ -117,9 +155,8 @@ export type RootStackParamList = {
   Dashboard: undefined;
   Profile: undefined;
   SOS: undefined;
-  IncidentList: undefined;
+  MyReports: undefined;
   IncidentDetail: { incidentId: number };
-  LocationTracking: undefined;
   Settings: undefined;
 };
 
@@ -154,12 +191,30 @@ export interface RegisterForm {
   email: string;
   password: string;
   confirmPassword: string;
+
+  full_name?: string;
+  phone?: string;
+  emergency_contact?: string;
+
+  blood_group?: string;
+  gender?: string;
+  nationality?: string;
+  date_of_birth?: string;
+  medical_conditions?: string;
+  allergies?: string;
 }
 
 export interface ProfileForm {
   full_name: string;
   phone: string;
   emergency_contact: string;
+
+  blood_group: string;
+  gender: string;
+  nationality: string;
+  date_of_birth: string;
+  medical_conditions: string;
+  allergies: string;
 }
 
 // ==================== HOOK TYPES ====================
@@ -177,6 +232,7 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
@@ -188,6 +244,7 @@ export interface LocationContextType {
   currentLocation: LocationData | null;
   isTracking: boolean;
   error: string | null;
+
   startTracking: () => Promise<void>;
   stopTracking: () => void;
   updateLocation: () => Promise<void>;

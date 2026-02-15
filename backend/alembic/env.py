@@ -14,6 +14,10 @@ from app.database import Base
 from app.models.user import User
 from app.models.incident import Incident
 from app.models.location import Location
+from app.models.location_event import LocationEvent
+from app.models.iot_device import IoTDevice
+from app.models.zone_status import ZoneStatus
+
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

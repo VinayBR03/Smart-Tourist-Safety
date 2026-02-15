@@ -47,12 +47,12 @@ def my_incidents(
 # Tourist: Create Incident
 # -------------------------
 @router.post("/", response_model=IncidentResponse)
-def report_incident(
+async def report_incident(
     data: IncidentCreate,
     db: Session = Depends(get_db),
     user: User = Depends(require_tourist),
 ):
-    return create_incident(
+    return await create_incident(
         db=db,
         tourist_id=user.id,
         description=data.description,
@@ -88,13 +88,13 @@ def incident_detail(
 # Authority: Update Status
 # -------------------------
 @router.patch("/{incident_id}/status", response_model=IncidentResponse)
-def change_status(
+async def change_status(
     incident_id: int,
     data: IncidentStatusUpdate,
     db: Session = Depends(get_db),
     _=Depends(require_authority),
 ):
-    return update_incident_status(
+    return await update_incident_status(
         db=db,
         incident_id=incident_id,
         status=data.status,

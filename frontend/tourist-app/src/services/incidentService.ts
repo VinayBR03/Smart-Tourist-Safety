@@ -2,6 +2,7 @@
 // Professional incident management service (Backend-aligned)
 
 import apiClient from '../api/client';
+import tzlookup from 'tz-lookup';
 import {
   Incident,
   CreateIncidentData,
@@ -140,8 +141,24 @@ class IncidentService {
    * Helpers
    */
   formatIncidentDate(incident: Incident): string {
-    return new Date(incident.created_at).toLocaleString();
-  }
+  const utcDate = new Date(incident.created_at);
+  const timeZone = tzlookup(incident.latitude, incident.longitude);
+
+
+  return utcDate.toLocaleString('en-US', {
+    timeZone: timeZone,
+    timeZoneName: 'short',
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+}
+
 
   getStatusColor(status: Incident['status']): string {
     switch (status) {

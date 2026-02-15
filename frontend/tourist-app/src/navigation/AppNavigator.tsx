@@ -53,7 +53,7 @@ export default function AppNavigator() {
           <Stack.Screen
             name="Dashboard"
             component={DashboardScreen}
-            options={{ title: 'Tourist Safety' }}
+            options={{ title: 'Sentinel Tour' }}
           />
           <Stack.Screen
             name="Profile"

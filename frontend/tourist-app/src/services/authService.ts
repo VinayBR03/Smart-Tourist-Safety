@@ -44,6 +44,13 @@ class AuthService {
         email: data.email,
         password: data.password,
         role: data.role || 'tourist',
+        full_name: data.full_name,
+        phone: data.phone,
+        emergency_contact: data.emergency_contact,
+        blood_group: data.blood_group,
+        gender: data.gender,
+        nationality: data.nationality,
+        date_of_birth: data.date_of_birth,
       });
 
       return response;

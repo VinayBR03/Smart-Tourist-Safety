@@ -1,5 +1,4 @@
 // src/context/AuthContext.tsx
-// Professional Authentication Context with complete state management
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import authService from '../services/authService';
@@ -20,39 +19,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  /**
-   * Initialize authentication state on mount
-   */
   useEffect(() => {
     checkAuthStatus();
   }, []);
 
-  /**
-   * Check if user is already authenticated
-   */
   const checkAuthStatus = async () => {
     try {
       setIsLoading(true);
-      
+
       const authenticated = await authService.isAuthenticated();
-      
+
       if (authenticated) {
-        // Load user data from storage
         const storedUser = await authService.getStoredUser();
-        
+
         if (storedUser) {
           setUser(storedUser);
           setIsAuthenticated(true);
         } else {
-          // Token exists but no user data, fetch from server
           try {
             const fetchedUser = await authService.getProfile();
             setUser(fetchedUser);
             setIsAuthenticated(true);
-          } catch (error) {
-            // Token invalid, logout
+          } catch {
             await authService.logout();
             setIsAuthenticated(false);
+            setUser(null);
           }
         }
       }
@@ -64,19 +55,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  /**
-   * Login user
-   */
   const login = useCallback(async (credentials: LoginCredentials): Promise<void> => {
     try {
       setIsLoading(true);
       setError(null);
 
       const { user: loggedInUser } = await authService.login(credentials);
-      
+
       setUser(loggedInUser);
       setIsAuthenticated(true);
-      
+
       console.log(SUCCESS_MESSAGES.LOGIN_SUCCESS);
     } catch (err: any) {
       const errorMessage = err.message || 'Login failed';
@@ -87,16 +75,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  /**
-   * Register new user
-   */
   const register = useCallback(async (data: RegisterData): Promise<void> => {
     try {
       setIsLoading(true);
       setError(null);
 
       await authService.register(data);
-      
+
       console.log(SUCCESS_MESSAGES.REGISTER_SUCCESS);
     } catch (err: any) {
       const errorMessage = err.message || 'Registration failed';
@@ -107,21 +92,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  /**
-   * Logout user
-   */
   const logout = useCallback(async (): Promise<void> => {
     try {
       setIsLoading(true);
       setError(null);
 
       await authService.logout();
-      
+
       setUser(null);
       setIsAuthenticated(false);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Logout error:', err);
-      // Still clear local state even if API call fails
       setUser(null);
       setIsAuthenticated(false);
     } finally {
@@ -129,18 +110,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  /**
-   * Update user profile
-   */
   const updateProfile = useCallback(async (data: UpdateProfileData): Promise<void> => {
     try {
       setIsLoading(true);
       setError(null);
 
       const updatedUser = await authService.updateProfile(data);
-      
+
       setUser(updatedUser);
-      
+
       console.log(SUCCESS_MESSAGES.PROFILE_UPDATE_SUCCESS);
     } catch (err: any) {
       const errorMessage = err.message || 'Profile update failed';
@@ -151,23 +129,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  /**
-   * Clear error
-   */
   const clearError = useCallback(() => {
     setError(null);
-  }, []);
-
-  /**
-   * Refresh user data from server
-   */
-  const refreshUser = useCallback(async (): Promise<void> => {
-    try {
-      const refreshedUser = await authService.getProfile();
-      setUser(refreshedUser);
-    } catch (err) {
-      console.error('Refresh user error:', err);
-    }
   }, []);
 
   const value: AuthContextType = {
@@ -185,16 +148,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-/**
- * Custom hook to use Auth context
- */
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  
+
   if (!context) {
     throw new Error('useAuth must be used within AuthProvider');
   }
-  
+
   return context;
 };
 
