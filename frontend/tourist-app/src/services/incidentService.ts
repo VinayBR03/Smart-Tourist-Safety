@@ -131,7 +131,7 @@ class IncidentService {
   async getPendingIncidentsCount(): Promise<number> {
     try {
       const incidents = await this.getAllIncidents();
-      return incidents.filter((i) => i.status === 'pending').length;
+      return incidents.filter((i) => i.status === 'open').length;
     } catch {
       return 0;
     }
@@ -162,9 +162,9 @@ class IncidentService {
 
   getStatusColor(status: Incident['status']): string {
     switch (status) {
-      case 'pending':
+      case 'open':
         return '#F59E0B';
-      case 'investigating':
+      case 'in_progress':
         return '#3B82F6';
       case 'resolved':
         return '#10B981';
@@ -175,10 +175,10 @@ class IncidentService {
 
   getStatusText(status: Incident['status']): string {
     switch (status) {
-      case 'pending':
-        return 'Pending';
-      case 'investigating':
-        return 'Under Investigation';
+      case 'open':
+        return 'Open';
+      case 'in_progress':
+        return 'In Progress';
       case 'resolved':
         return 'Resolved';
       default:

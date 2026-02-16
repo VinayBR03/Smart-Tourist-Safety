@@ -20,7 +20,7 @@ type Props = NativeStackScreenProps<any, 'MyReports'>;
 
 type SortOrder = 'latest' | 'oldest';
 type ViewMode = 'card' | 'timeline';
-type StatusFilter = 'all' | 'pending' | 'in_progress' | 'resolved';
+type StatusFilter = 'all' | 'open' | 'in_progress' | 'resolved';
 
 export default function MyReportsScreen({ navigation }: Props) {
   const [incidents, setIncidents] = useState<Incident[]>([]);

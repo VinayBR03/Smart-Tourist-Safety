@@ -8,7 +8,7 @@ export const API_CONFIG = {
   // IMPORTANT: Replace with your actual backend URL
   BASE_URL: __DEV__ 
     ? Platform.OS === 'android' 
-      ? 'http://192.168.1.9:8000' // Android Emulator (using ngrok URL)
+      ? 'http://192.168.1.8:8000' // Android Emulator (using ngrok URL)
       : 'http://localhost:8000' // iOS Simulator
     : 'https://your-production-api.com', // Production URL
   

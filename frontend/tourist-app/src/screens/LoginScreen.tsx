@@ -14,6 +14,7 @@ import {
   Platform,
   ScrollView,
   StatusBar,
+  Image,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
@@ -80,7 +81,7 @@ export default function LoginScreen({ navigation }: Props) {
           keyboardShouldPersistTaps="handled">
           
           <View style={styles.header}>
-            <Text style={styles.logo}>🛡️</Text>
+            <Image source={require('../../assets/images/logo.png')} style={[styles.logo,{height:100,width:100,resizeMode:'contain'}]} />
             <Text style={styles.title}>Tourist Safety</Text>
             <Text style={styles.subtitle}>Welcome back!</Text>
           </View>
