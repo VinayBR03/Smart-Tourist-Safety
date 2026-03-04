@@ -1,49 +1,30 @@
 import os
 import json
-import sys
 
-def path_to_dict(path):
-    """
-    Recursively traverse directory and build a dictionary 
-    representation of the file structure.
-    """
-    # Initialize dictionary for the current path
-    d = {'name': os.path.basename(path)}
+def get_structure(path):
+    """Builds the structure, skipping '_' prefixes and specific names like 'venv'."""
+    name = os.path.basename(path)
     
-    # Check if the path is a directory or a file
     if os.path.isdir(path):
-        d['type'] = "directory"
-        children = []
-        # Iterate over contents of the directory
-        for entry in os.listdir(path):
-            if entry == "node_modules":
-                continue
-            full_path = os.path.join(path, entry)
-            # Recursively call function for subdirectories/files
-            children.append(path_to_dict(full_path))
-        d['children'] = children
-    else:
-        d['type'] = "file"
-    
-    return d
+        # Filter: Skip if starts with '_' OR if the name is 'venv' or '.git'
+        exclude = {'venv', '.git', '.vscode'}
+        items = [x for x in os.listdir(path) if not x.startswith('_') and x not in exclude]
+        items.sort() 
+        
+        return {
+            name: [get_structure(os.path.join(path, x)) for x in items]
+        }
+    return name
 
-# Specify the starting directory path. 
-# It uses the current directory ('.') by default or an argument from the command line.
-if __name__ == '__main__':
-    try:
-        directory = sys.argv[1]
-    except IndexError:
-        directory = "C:\\Users\\Vinay B R\\Desktop\\Smart Tourist Safety System\\frontend\\TouristSafetyApp"
-
-    # Generate the dictionary representation
-    folder_structure = path_to_dict(directory)
+def save_structure_to_json(root_path, output_file):
+    """Saves the filtered folder structure to a formatted JSON file."""
+    # os.path.abspath ensures the root folder name isn't just '.'
+    root_name = os.path.abspath(root_path)
+    structure = get_structure(root_name)
     
-    # Convert the dictionary to a JSON formatted string with indentation for readability
-    json_output = json.dumps(folder_structure, indent=4)
-    
-    # Print the JSON output
-    print(json_output)
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(structure, f, indent=4, ensure_ascii=False)
 
-    # Optionally, write the JSON output to a file
-    with open('folder_structure.json', 'w') as json_file:
-        json_file.write(json_output)
+if __name__ == "__main__":
+    save_structure_to_json('tests', 'folder_structure.json')
+    print("Clean JSON structure generated!")

@@ -1,3 +1,5 @@
+// Replace entire App.jsx
+
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -20,68 +22,56 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const MainLayout = ({ children }) => (
-  <div className="min-h-screen bg-gray-100">
-    <Navbar />
-    <main>{children}</main>
-  </div>
+  <WebSocketProvider>
+    <div className="min-h-screen bg-gray-100">
+      <Navbar />
+      <main>{children}</main>
+    </div>
+  </WebSocketProvider>
 );
 
 function App() {
   return (
     <AuthProvider>
-      <WebSocketProvider>
-        <Router>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
+      <Router>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
 
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <DashboardPage />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <MainLayout>
+                <DashboardPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }/>
 
-            <Route
-              path="/incidents"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <IncidentsPage />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
+          <Route path="/incidents" element={
+            <ProtectedRoute>
+              <MainLayout>
+                <IncidentsPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }/>
 
-            <Route
-              path="/tourists"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <TouristsPage />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
+          <Route path="/tourists" element={
+            <ProtectedRoute>
+              <MainLayout>
+                <TouristsPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }/>
 
-            <Route
-              path="/map"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <MapPage />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
+          <Route path="/map" element={
+            <ProtectedRoute>
+              <MainLayout>
+                <MapPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }/>
 
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </Router>
-      </WebSocketProvider>
+          <Route path="/" element={<Navigate to="/dashboard" />} />
+        </Routes>
+      </Router>
     </AuthProvider>
   );
 }

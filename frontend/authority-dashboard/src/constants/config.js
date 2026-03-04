@@ -1,10 +1,13 @@
 // src/constants/config.js - FIXED VERSION
-
 // API Configuration
 export const API_CONFIG = {
   BASE_URL: 'http://localhost:8000', // Change to your backend URL
+  WS_URL: 'ws://localhost:8000/ws', // WebSocket URL
   TIMEOUT: 30000,
 };
+
+
+export const ACTIVE_THRESHOLD_MINUTES = 2; // Consider tourists active if seen in last 2 minutes
 
 // Application Configuration
 export const APP_CONFIG = {

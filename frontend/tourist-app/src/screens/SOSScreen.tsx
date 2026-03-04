@@ -21,7 +21,7 @@ import { COLORS, SPACING, TYPOGRAPHY, RADIUS, SUCCESS_MESSAGES } from '../consta
 type Props = NativeStackScreenProps<any, 'SOS'>;
 
 export default function SOSScreen({ navigation }: Props) {
-  const { currentLocation, updateLocation } = useLocation();
+  const { currentLocation } = useLocation();
   const [sending, setSending] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [pulseAnim] = useState(new Animated.Value(1));
@@ -33,8 +33,6 @@ export default function SOSScreen({ navigation }: Props) {
         Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
       ])
     ).start();
-
-    updateLocation().catch(console.error);
   }, []);
 
   useEffect(() => {

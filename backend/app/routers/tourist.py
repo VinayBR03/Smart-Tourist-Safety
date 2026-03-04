@@ -1,78 +1,162 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from typing import List
+# app/routers/tourist.py
 
-from app.dependencies import get_db, require_tourist, require_authority
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.core.dependencies import require_roles
+from app.core.enums import UserRole
+
 from app.models.user import User
-from app.schemas.tourist_schema import TouristResponse, TouristUpdate
+
 from app.services.tourist_service import (
-    update_tourist_profile,
-    get_all_tourists,
     get_tourist_by_id,
+    update_tourist_profile,
+    get_profile_photo_key,
+    request_account_deletion,
 )
 
-router = APIRouter(prefix="/tourists", tags=["Tourists"])
+from app.core.exceptions import (
+    NotFoundError,
+    ValidationError,
+    ForbiddenError,
+)
 
 
-# -----------------------------------
-# Tourist: Get Own Profile
-# -----------------------------------
-@router.get("/me", response_model=TouristResponse)
+router = APIRouter(
+    prefix="/tourists",
+    tags=["Tourists"],
+)
+
+
+# =========================================================
+# Get Own Profile
+# =========================================================
+
+@router.get(
+    "/me",
+    status_code=status.HTTP_200_OK,
+)
 def get_my_profile(
-    user: User = Depends(require_tourist),
-):
-    return user
-
-
-# -----------------------------------
-# Tourist: Update Own Profile
-# -----------------------------------
-@router.put("/me", response_model=TouristResponse)
-async def update_my_profile(
-    data: TouristUpdate,
     db: Session = Depends(get_db),
-    user: User = Depends(require_tourist),
+    current_user: User = Depends(require_roles(UserRole.TOURIST)),
 ):
-    updated_user = await update_tourist_profile(
-        db=db,
-        tourist_id=user.id,
-        full_name=data.full_name,
-        phone=data.phone,
-        emergency_contact=data.emergency_contact,
-        blood_group=data.blood_group,
-        medical_conditions=data.medical_conditions,
-        allergies=data.allergies,
-        date_of_birth=data.date_of_birth,
-        gender=data.gender,
-        nationality=data.nationality,
-    )
+    """
+    Tourist fetches own profile.
+    """
 
-    return updated_user
+    return get_tourist_by_id(db, tourist_id=current_user.id)
 
 
-# -----------------------------------
-# Authority: List All Tourists
-# -----------------------------------
-@router.get("/", response_model=List[TouristResponse])
-def list_tourists(
-    db: Session = Depends(get_db),
-    _: User = Depends(require_authority),
-):
-    return get_all_tourists(db)
+# =========================================================
+# Get Tourist (Admin / Authority)
+# =========================================================
 
-
-# -----------------------------------
-# Authority: Get Tourist By ID
-# -----------------------------------
-@router.get("/{tourist_id}", response_model=TouristResponse)
-def get_tourist_by_id_route(
+@router.get(
+    "/{tourist_id}",
+    status_code=status.HTTP_200_OK,
+)
+def fetch_tourist(
     tourist_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_authority),
+    _: User = Depends(require_roles(UserRole.ADMIN, UserRole.AUTHORITY)),
 ):
-    tourist = get_tourist_by_id(db, tourist_id)
+    """
+    Fetch tourist details with activity status.
+    """
 
-    if not tourist:
-        raise HTTPException(status_code=404, detail="Tourist not found")
+    try:
+        return get_tourist_by_id(db, tourist_id=tourist_id)
+    except NotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tourist not found.",
+        )
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
 
-    return tourist
+
+# =========================================================
+# Update Own Profile
+# =========================================================
+
+@router.patch(
+    "/me",
+    status_code=status.HTTP_200_OK,
+)
+def update_my_profile(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.TOURIST)),
+):
+    """
+    Tourist updates allowed profile fields.
+    """
+
+    try:
+        updated = update_tourist_profile(
+            db,
+            tourist_id=current_user.id,
+            updates=payload,
+        )
+        return {"updated": True, "user_id": updated.id}
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+# =========================================================
+# Get Profile Photo Key
+# =========================================================
+
+@router.get(
+    "/me/profile-photo",
+    status_code=status.HTTP_200_OK,
+)
+def get_my_profile_photo(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.TOURIST)),
+):
+    """
+    Fetch latest profile photo S3 key.
+    """
+
+    key = get_profile_photo_key(
+        db,
+        tourist_id=current_user.id,
+    )
+
+    return {"s3_key": key}
+
+
+# =========================================================
+# Request Account Deletion
+# =========================================================
+
+@router.post(
+    "/me/request-deletion",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def request_deletion(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.TOURIST)),
+):
+    """
+    Tourist initiates account deletion workflow.
+    """
+
+    try:
+        request_account_deletion(
+            db,
+            tourist_id=current_user.id,
+        )
+    except ForbiddenError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )

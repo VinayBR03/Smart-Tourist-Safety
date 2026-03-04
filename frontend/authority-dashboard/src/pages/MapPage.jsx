@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -8,256 +8,112 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+
 import incidentService from "../services/incidentService";
 import touristService from "../services/touristService";
+import locationService from "../services/locationService";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { MAP_CONFIG } from "../constants/config";
 import { useWebSocket } from "../context/WebSocketContext";
 
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
+const createPulseIcon = (color) =>
+  new L.DivIcon({
+    className: "",
+    html: `
+      <div class="pulse-marker" style="--pulse-color:${color}">
+        <div class="pulse-core"></div>
+        <div class="pulse-ring"></div>
+      </div>
+    `,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+  });
 
-// Fix default icon issue in Leaflet
-const defaultIcon = new L.Icon({
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-  iconSize: [10,14],
-  shadowSize: [10, 14],
-});
-L.Marker.prototype.options.icon = defaultIcon;
-
-// ✅ Map controller for flyTo (React 18 safe)
-const MapController = ({ position }) => {
-  const map = useMap();
-
-  useEffect(() => {
-    if (position) {
-      map.flyTo(position, MAP_CONFIG.INCIDENT_ZOOM, {
-        animate: true,
-        duration: 1.5,
-      });
-    }
-  }, [position]);
-
-  return null;
-};
+const createDotIcon = (color) =>
+  new L.DivIcon({
+    className: "",
+    html: `
+      <div style="
+        width:18px;
+        height:18px;
+        background:${color};
+        border-radius:50%;
+        border:2px solid white;
+      "></div>
+    `,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  });
 
 const MapPage = () => {
-  const { notifications } = useWebSocket();
+  const ws = useWebSocket();
+  const events = ws.events || [];
 
   const [incidents, setIncidents] = useState([]);
   const [tourists, setTourists] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [selectedPosition, setSelectedPosition] = useState(null);
-  const [incidentSort, setIncidentSort] = useState("newest");
-  const [touristFilter, setTouristFilter] = useState("all");
+  const intervalRef = useRef(null);
+
+  const loadData = async () => {
+    try {
+      const [i, t, l] = await Promise.all([
+        incidentService.getAllIncidents(),
+        touristService.getAllTourists(),
+        locationService.getAllCurrentLocations(),
+      ]);
+
+      setIncidents(i);
+      setTourists(t);
+      setLocations(l);
+    } catch (err) {
+      console.error("Map load error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadData();
+    intervalRef.current = setInterval(loadData, 10000);
+    return () => clearInterval(intervalRef.current);
   }, []);
 
   useEffect(() => {
-    if (!notifications.length) return;
+    if (!events.length) return;
     loadData();
-  }, [notifications]);
-
-  const loadData = async () => {
-    const [i, t] = await Promise.all([
-      incidentService.getAllIncidents(),
-      touristService.getAllTourists(),
-    ]);
-    setIncidents(i);
-    setTourists(t);
-    setLoading(false);
-  };
-
-  // ------------------------
-  // Active tourists = 24hr recent incident
-  // ------------------------
-  const activeTourists = useMemo(() => {
-    const cutoff = new Date();
-    cutoff.setHours(cutoff.getHours() - 24);
-
-    return tourists.filter((t) =>
-      incidents.some(
-        (i) =>
-          i.tourist_id === t.id &&
-          new Date(i.created_at) >= cutoff
-      )
-    );
-  }, [tourists, incidents]);
-
-  // ------------------------
-  // Incident Sorting
-  // ------------------------
-  const sortedIncidents = useMemo(() => {
-    let data = [...incidents];
-
-    if (incidentSort === "newest") {
-      data.sort((a, b) => b.id - a.id);
-    }
-
-    if (incidentSort === "oldest") {
-      data.sort((a, b) => a.id - b.id);
-    }
-
-    if (incidentSort === "open") {
-      data.sort((a, b) =>
-        a.status === "open" ? -1 : 1
-      );
-    }
-
-    return data;
-  }, [incidents, incidentSort]);
-
-  // ------------------------
-  // Tourist Filter
-  // ------------------------
-  const filteredTourists =
-    touristFilter === "active"
-      ? activeTourists
-      : tourists;
+  }, [events]);
 
   if (loading)
     return <LoadingSpinner size="lg" message="Loading map..." />;
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]">
+    <div className="h-[calc(100vh-4rem)]">
+      <MapContainer
+        center={MAP_CONFIG.DEFAULT_CENTER}
+        zoom={MAP_CONFIG.DEFAULT_ZOOM}
+        style={{ height: "100%", width: "100%" }}
+      >
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-      {/* SIDEBAR */}
-      <div className="w-96 bg-white shadow-lg overflow-y-auto p-6 space-y-8">
+        {/* INCIDENT MARKERS */}
+        {incidents.map((incident) => {
+          if (incident.status === "resolved") return null;
 
-        <h2 className="text-xl font-bold">
-          Operational Intelligence Map
-        </h2>
+          const icon =
+            incident.status === "open"
+              ? createPulseIcon("#dc2626")
+              : createDotIcon("#f97316");
 
-        {/* INCIDENT SECTION */}
-        <div>
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-semibold">Incidents</h3>
-            <select
-              value={incidentSort}
-              onChange={(e) => setIncidentSort(e.target.value)}
-              className="text-sm px-2 py-1 border rounded"
-            >
-              <option value="newest">Newest</option>
-              <option value="oldest">Oldest</option>
-              <option value="open">Open First</option>
-            </select>
-          </div>
-
-          <div className="space-y-3">
-            {sortedIncidents.map((incident) => (
-              <div
-                key={incident.id}
-                onClick={() =>
-                  setSelectedPosition([
-                    incident.latitude,
-                    incident.longitude,
-                  ])
-                }
-                className="p-4 bg-gray-50 rounded-xl shadow-sm hover:shadow-md cursor-pointer border-l-4 border-red-500 transition"
-              >
-                <div className="flex justify-between">
-                  <span className="font-semibold">
-                    #{incident.id}
-                  </span>
-                  <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
-                    {incident.status}
-                  </span>
-                </div>
-
-                <p className="text-sm mt-2 text-gray-700 line-clamp-2">
-                  {incident.description}
-                </p>
-
-                <div className="text-xs text-gray-400 mt-2">
-                  {incident.latitude.toFixed(4)},{" "}
-                  {incident.longitude.toFixed(4)}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* TOURIST SECTION */}
-        <div>
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-semibold">Tourists</h3>
-            <select
-              value={touristFilter}
-              onChange={(e) => setTouristFilter(e.target.value)}
-              className="text-sm px-2 py-1 border rounded"
-            >
-              <option value="all">All</option>
-              <option value="active">Active (24h)</option>
-            </select>
-          </div>
-
-          <div className="space-y-3">
-            {filteredTourists.map((tourist) => {
-              const latestIncident = incidents
-                .filter((i) => i.tourist_id === tourist.id)
-                .sort(
-                  (a, b) =>
-                    new Date(b.created_at) -
-                    new Date(a.created_at)
-                )[0];
-
-              if (!latestIncident) return null;
-
-              return (
-                <div
-                  key={tourist.id}
-                  onClick={() =>
-                    setSelectedPosition([
-                      latestIncident.latitude,
-                      latestIncident.longitude,
-                    ])
-                  }
-                  className="p-4 bg-blue-50 rounded-xl shadow-sm hover:shadow-md cursor-pointer border-l-4 border-blue-500 transition"
-                >
-                  <div className="font-semibold">
-                    {tourist.full_name || "Unnamed"}
-                  </div>
-
-                  <div className="text-xs text-gray-500">
-                    {tourist.email}
-                  </div>
-
-                  <div className="text-xs text-gray-400 mt-2">
-                    Last Seen:{" "}
-                    {latestIncident.latitude.toFixed(4)},{" "}
-                    {latestIncident.longitude.toFixed(4)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* MAP */}
-      <div className="flex-1">
-        <MapContainer
-          center={selectedPosition || MAP_CONFIG.DEFAULT_CENTER}
-          zoom={MAP_CONFIG.DEFAULT_ZOOM}
-          style={{ height: "100%", width: "100%" }}
-        >
-          <MapController position={selectedPosition} />
-
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-
-          {incidents.map((incident) => (
+          return (
             <Marker
-              key={incident.id}
+              key={`incident-${incident.id}`}
               position={[
                 incident.latitude,
                 incident.longitude,
               ]}
+              icon={icon}
             >
               <Popup>
                 <strong>Incident #{incident.id}</strong>
@@ -265,9 +121,75 @@ const MapPage = () => {
                 {incident.description}
               </Popup>
             </Marker>
-          ))}
-        </MapContainer>
-      </div>
+          );
+        })}
+
+        {/* TOURIST MARKERS */}
+        {locations.map((loc) => {
+          const tourist = tourists.find(
+            (t) => t.id === loc.tourist_id
+          );
+          if (!tourist) return null;
+
+          let icon;
+
+          if (tourist.activity_status === "active")
+            icon = createPulseIcon("#2563eb");
+          else if (tourist.activity_status === "delayed")
+            icon = createDotIcon("#f59e0b");
+          else icon = createDotIcon("#9ca3af");
+
+          return (
+            <Marker
+              key={`tourist-${tourist.id}`}
+              position={[loc.latitude, loc.longitude]}
+              icon={icon}
+            >
+              <Popup>
+                <strong>{tourist.full_name}</strong>
+                <br />
+                Status: {tourist.activity_status}
+                <br />
+                Updated:{" "}
+                {new Date(
+                  loc.updated_at
+                ).toLocaleString()}
+              </Popup>
+            </Marker>
+          );
+        })}
+      </MapContainer>
+
+      <style>{`
+        .pulse-marker {
+          position: relative;
+          width: 18px;
+          height: 18px;
+        }
+        .pulse-core {
+          width: 18px;
+          height: 18px;
+          background: var(--pulse-color);
+          border-radius: 50%;
+          border: 2px solid white;
+          position: absolute;
+          z-index: 2;
+        }
+        .pulse-ring {
+          width: 18px;
+          height: 18px;
+          background: var(--pulse-color);
+          border-radius: 50%;
+          position: absolute;
+          animation: pulse 1.5s infinite;
+          opacity: 0.6;
+          z-index: 1;
+        }
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 0.6; }
+          100% { transform: scale(2.5); opacity: 0; }
+        }
+      `}</style>
     </div>
   );
 };

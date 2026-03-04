@@ -1,23 +1,26 @@
 // src/services/locationService.js
-// Location Service
 
-import apiClient from './apiClient';
+import apiClient from "./apiClient";
 
 class LocationService {
-  // Get tourist locations (from backend if available)
-  async getTouristLocations() {
-    try {
-      // This endpoint would need to be added to your backend
-      return await apiClient.get('/location/all');
-    } catch (error) {
-      console.warn('Location endpoint not available:', error);
-      return [];
-    }
+  // Authority: get all current snapshot locations
+  async getAllCurrentLocations() {
+    return await apiClient.get("/location/current");
   }
 
-  // Calculate distance between two points (Haversine formula)
+  // Authority: get single tourist current location
+  async getTouristCurrentLocation(touristId) {
+    return await apiClient.get(`/location/current/${touristId}`);
+  }
+
+  // Authority: get tourist history
+  async getTouristLocationHistory(touristId) {
+    return await apiClient.get(`/location/history/${touristId}`);
+  }
+
+  // Utility: distance calculation (Haversine)
   calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // Earth radius in meters
+    const R = 6371e3;
     const φ1 = (lat1 * Math.PI) / 180;
     const φ2 = (lat2 * Math.PI) / 180;
     const Δφ = ((lat2 - lat1) * Math.PI) / 180;
@@ -25,18 +28,19 @@ class LocationService {
 
     const a =
       Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      Math.cos(φ1) *
+        Math.cos(φ2) *
+        Math.sin(Δλ / 2) *
+        Math.sin(Δλ / 2);
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-    return R * c; // Distance in meters
+    return R * c;
   }
 
-  // Format coordinates
   formatCoordinates(lat, lng) {
     return `${lat.toFixed(6)}°, ${lng.toFixed(6)}°`;
   }
 }
 
-export const locationService = new LocationService();
-export default locationService;
+export default new LocationService();

@@ -1,49 +1,44 @@
 import React, { useEffect, useMemo, useState } from "react";
 import touristService from "../services/touristService";
-import incidentService from "../services/incidentService";
+import locationService from "../services/locationService";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { useWebSocket } from "../context/WebSocketContext";
 
 const TouristsPage = () => {
-  const { notifications } = useWebSocket();
+  const { events = []} = useWebSocket();
 
   const [tourists, setTourists] = useState([]);
-  const [incidents, setIncidents] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("newest");
+
+  const loadData = async () => {
+    try {
+      const [t, l] = await Promise.all([
+        touristService.getAllTourists(),
+        locationService.getAllCurrentLocations(),
+      ]);
+
+      setTourists(t);
+      setLocations(l);
+    } catch (err) {
+      console.error("Tourist load error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = async () => {
-    const [t, i] = await Promise.all([
-      touristService.getAllTourists(),
-      incidentService.getAllIncidents(),
-    ]);
-    setTourists(t);
-    setIncidents(i);
-    setLoading(false);
-  };
-
   useEffect(() => {
-    if (!notifications.length) return;
+    if (!events.length) return;
     loadData();
-  }, [notifications]);
+  }, [events]);
 
-  const activeTourists = useMemo(() => {
-    const cutoff = new Date();
-    cutoff.setMilliseconds(cutoff.getMilliseconds() - 1 * 60 * 1000); // 1 minute ago
-
-    return tourists.filter((t) =>
-      incidents.some(
-        (i) =>
-          i.tourist_id === t.id &&
-          new Date(i.created_at) >= cutoff
-      )
-    );
-  }, [tourists, incidents]);
+  const stats = touristService.getStatistics(tourists);
 
   const filtered = useMemo(() => {
     let data = [...tourists];
@@ -52,8 +47,7 @@ const TouristsPage = () => {
       data = data.filter(
         (t) =>
           t.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-          t.email.toLowerCase().includes(search.toLowerCase()) ||
-          t.phone?.includes(search)
+          t.email?.toLowerCase().includes(search.toLowerCase())
       );
     }
 
@@ -67,6 +61,16 @@ const TouristsPage = () => {
       data.sort((a, b) => b.id - a.id);
     }
 
+    if (sortBy === "activity") {
+      const statusOrder = { active: 1, delayed: 2, offline: 3 };
+      data.sort((a, b) => {
+        const statusA = statusOrder[a.activity_status] || 99;
+        const statusB = statusOrder[b.activity_status] || 99;
+        return statusA - statusB;
+      });
+    }
+
+
     return data;
   }, [tourists, search, sortBy]);
 
@@ -75,80 +79,80 @@ const TouristsPage = () => {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Tourist Intelligence Panel</h1>
+      <h1 className="text-2xl font-bold">
+        Tourist Intelligence Panel
+      </h1>
 
       {/* STAT CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard label="Total Tourists" value={tourists.length} />
-        <StatCard label="Active (1m)" value={activeTourists.length} />
-        <StatCard
-          label="With Emergency Contact"
-          value={tourists.filter((t) => t.emergency_contact).length}
-        />
+      <div className="grid grid-cols-4 gap-4">
+        <StatCard label="Total" value={stats.total} />
+        <StatCard label="Active" value={stats.active} />
+        <StatCard label="Delayed" value={stats.delayed} />
+        <StatCard label="Offline" value={stats.offline} />
       </div>
 
-      {/* SEARCH + SORT */}
-      <div className="flex flex-col md:flex-row gap-4 justify-between">
-        <input
-          type="text"
-          placeholder="Search by name, email or phone..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-        />
+      {/* SEARCH */}
+      <input
+        type="text"
+        placeholder="Search tourist..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full px-4 py-2 border rounded-lg"
+      />
 
+      {/* SORT */}
+      <div className="flex space-x-2 mt-2">
+        <span className="text-sm text-gray-600">Sort by:</span>
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
-          className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+          className="px-2 py-1 border rounded-lg text-sm"
         >
-          <option value="newest">Newest First</option>
-          <option value="name">Sort by Name</option>
+          <option value="newest">Newest</option>
+          <option value="name">Name</option>
+          <option value="activity">Activity Status</option>
         </select>
       </div>
 
       {/* TOURIST CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filtered.map((tourist) => {
-          const isActive = activeTourists.some(
-            (t) => t.id === tourist.id
+          const location = locations.find(
+            (l) => l.tourist_id === tourist.id
           );
 
           return (
             <div
               key={tourist.id}
-              className={`bg-white rounded-xl shadow-md p-5 border ${
-                isActive ? "border-green-400" : "border-gray-200"
-              } hover:shadow-xl transition`}
+              className="bg-white p-5 rounded-xl shadow border"
             >
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-lg font-semibold">
-                  {tourist.full_name || "Unnamed Tourist"}
+              <div className="flex justify-between">
+                <h3 className="font-semibold">
+                  {tourist.full_name}
                 </h3>
-                {isActive && (
-                  <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">
-                    Active
-                  </span>
-                )}
+                <StatusBadge status={tourist.activity_status} />
               </div>
 
-              <p className="text-sm text-gray-600 mb-2">
+              <p className="text-sm text-gray-500 mt-2">
                 {tourist.email}
               </p>
 
-              {tourist.phone && (
-                <p className="text-sm">📞 {tourist.phone}</p>
+              {location && (
+                <div className="mt-3 text-xs text-gray-500">
+                  <div>
+                    Lat: {location.latitude.toFixed(4)}
+                  </div>
+                  <div>
+                    Lng: {location.longitude.toFixed(4)}
+                  </div>
+                  <div>
+                    Updated:{" "}
+                    {new Date(
+                      location.updated_at
+                    ).toLocaleString()}
+                  </div>
+                </div>
               )}
-
-              {tourist.emergency_contact && (
-                <p className="text-sm text-red-600">
-                  🚨 Emergency: {tourist.emergency_contact}
-                </p>
-              )}
-
-              <div className="mt-3 text-xs text-gray-400">
-                ID: #{tourist.id}
-              </div>
             </div>
           );
         })}
@@ -163,5 +167,20 @@ const StatCard = ({ label, value }) => (
     <p className="text-2xl font-bold">{value}</p>
   </div>
 );
+
+const StatusBadge = ({ status }) => {
+  const style =
+    status === "active"
+      ? "bg-green-100 text-green-700"
+      : status === "delayed"
+      ? "bg-yellow-100 text-yellow-700"
+      : "bg-gray-200 text-gray-600";
+
+  return (
+    <span className={`text-xs px-2 py-1 rounded ${style}`}>
+      {status}
+    </span>
+  );
+};
 
 export default TouristsPage;

@@ -106,6 +106,7 @@ const DashboardPage = () => {
       {/* STAT CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard title="Tourists" value={stats.tourists.total} icon={<Users size={20} />} />
+        <StatCard title="Nodes" value={stats.incidents.total} icon={<AlertTriangle size={20} />} />
         <StatCard title="Open" value={stats.incidents.open} icon={<AlertTriangle size={20} />} color="red" />
         <StatCard title="In Progress" value={stats.incidents.in_progress} icon={<Clock size={20} />} color="yellow" />
         <StatCard title="Resolved Today" value={stats.resolvedToday} icon={<CalendarCheck size={20} />} />

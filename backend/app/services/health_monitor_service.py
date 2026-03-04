@@ -1,0 +1,298 @@
+from datetime import datetime, timedelta, timezone
+from typing import Optional, Dict
+import math
+
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+
+from app.models.health_telemetry import HealthTelemetry
+from app.models.incident import Incident
+
+from app.core.enums import (
+    AuditAction,
+    EntityType,
+    IncidentStatus,
+    IncidentSource,
+    NotificationChannel,
+    NotificationSeverity,
+)
+
+from app.core.exceptions import ConflictError
+from app.services.audit_service import create_audit_log
+from app.services.notification_service import create_notification
+from app.services.outbox_service import create_outbox_event
+from app.services.incident_service import create_incident
+from app.services.internal_ml_service import internal_ml_service
+
+from app.core.logging_config import get_correlation_id
+from app.core.config import settings
+from app.utils.logger import get_logger
+
+
+logger = get_logger(__name__)
+
+
+# =========================================================
+# Logging
+# =========================================================
+
+def _log(message: str, **kwargs):
+    logger.warning(
+        message,
+        extra={
+            "extra_data": {
+                **kwargs,
+                "correlation_id": get_correlation_id(),
+            }
+        },
+    )
+
+
+# =========================================================
+# Sanitization
+# =========================================================
+
+def _sanitize(value: Optional[float], min_val: float, max_val: float) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(value):
+        return None
+    if value < min_val or value > max_val:
+        return None
+    return value
+
+
+# =========================================================
+# Cooldown Guard
+# =========================================================
+
+def _has_recent_health_incident(db: Session, *, tourist_id: int) -> bool:
+
+    cooldown = int(getattr(settings, "HEALTH_ALERT_COOLDOWN_MINUTES", 5))
+
+    threshold = datetime.now(timezone.utc) - timedelta(minutes=cooldown)
+
+    stmt = (
+        select(Incident.id)
+        .where(
+            Incident.tourist_id == tourist_id,
+            Incident.created_at >= threshold,
+            Incident.deleted_at.is_(None),
+            Incident.status.in_(
+                [
+                    IncidentStatus.OPEN.value,
+                    IncidentStatus.IN_PROGRESS.value,
+                ]
+            ),
+        )
+        .limit(1)
+    )
+
+    return db.execute(stmt).scalar_one_or_none() is not None
+
+
+# =========================================================
+# Evaluate Health Metrics
+# =========================================================
+
+def evaluate_health_metrics(
+    db: Session,
+    *,
+    tourist_id: int,
+    heart_rate: Optional[float],
+    spo2: Optional[float],
+    body_temperature: Optional[float],
+    movement_variance: Optional[float] = None,
+    fall_detected: bool = False,
+    zone_id: Optional[int] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+) -> None:
+
+    now = datetime.now(timezone.utc)
+
+    # Sanitize physiological inputs
+    heart_rate = _sanitize(heart_rate, 20, 300)
+    spo2 = _sanitize(spo2, 50, 100)
+    body_temperature = _sanitize(body_temperature, 30, 45)
+
+    # Persist telemetry
+    db.add(
+        HealthTelemetry(
+            tourist_id=tourist_id,
+            heart_rate=heart_rate,
+            spo2=spo2,
+            body_temperature=body_temperature,
+            fall_detected=fall_detected,
+            recorded_at=now,
+        )
+    )
+
+    if _has_recent_health_incident(db, tourist_id=tourist_id):
+        return
+
+    # -------------------------------------------------
+    # RULE CHECK
+    # -------------------------------------------------
+
+    rule_triggered = False
+    reason = None
+
+    hr_high = float(getattr(settings, "HEART_RATE_HIGH", 140))
+    hr_low = float(getattr(settings, "HEART_RATE_LOW", 40))
+    spo2_low = float(getattr(settings, "SPO2_LOW", 90))
+    temp_high = float(getattr(settings, "TEMP_HIGH", 39))
+    ml_threshold = float(getattr(settings, "HEALTH_ML_THRESHOLD", 0.8))
+
+    if fall_detected:
+        rule_triggered = True
+        reason = "Fall detected"
+
+    elif heart_rate is not None:
+        if heart_rate > hr_high:
+            rule_triggered = True
+            reason = "Critical high heart rate"
+        elif heart_rate < hr_low:
+            rule_triggered = True
+            reason = "Critical low heart rate"
+
+    if not rule_triggered and spo2 is not None:
+        if spo2 < spo2_low:
+            rule_triggered = True
+            reason = "Low oxygen level"
+
+    if not rule_triggered and body_temperature is not None:
+        if body_temperature > temp_high:
+            rule_triggered = True
+            reason = "High body body_temperature"
+
+    # -------------------------------------------------
+    # ML CHECK
+    # -------------------------------------------------
+
+    ml_triggered = False
+
+    ml_features: Dict[str, float] = {
+        "heart_rate": float(heart_rate or 0.0),
+        "spo2": float(spo2 or 0.0),
+        "body_temperature": float(body_temperature or 0.0),
+        "movement_variance": float(movement_variance or 0.0),
+        "previous_health_score": 0.0,
+    }
+
+    ml_result = internal_ml_service.predict_health_risk(
+        features=ml_features
+    )
+
+    if ml_result:
+
+        try:
+            anomaly_score = float(ml_result.get("anomaly_score", 0.0))
+        except (TypeError, ValueError):
+            anomaly_score = 0.0
+
+        if not math.isfinite(anomaly_score):
+            anomaly_score = 0.0
+
+        anomaly_score = max(0.0, min(1.0, anomaly_score))
+
+        if anomaly_score >= ml_threshold:
+            ml_triggered = True
+            if not reason:
+                reason = "ML detected health anomaly"
+
+            _log(
+                "ML health anomaly detected",
+                tourist_id=tourist_id,
+                anomaly_score=anomaly_score,
+            )
+
+    # -------------------------------------------------
+    # FINAL DECISION
+    # -------------------------------------------------
+
+    if not rule_triggered and not ml_triggered:
+        return
+
+    _trigger_auto_incident(
+        db=db,
+        tourist_id=tourist_id,
+        reason=reason or "Health anomaly detected",
+        zone_id=zone_id,
+        latitude=latitude,
+        longitude=longitude,
+    )
+
+
+# =========================================================
+# Auto Incident Trigger
+# =========================================================
+
+def _trigger_auto_incident(
+    db: Session,
+    *,
+    tourist_id: int,
+    reason: str,
+    zone_id: Optional[int],
+    latitude: Optional[float],
+    longitude: Optional[float],
+) -> None:
+
+    try:
+        incident = create_incident(
+            db=db,
+            tourist_id=tourist_id,
+            description=reason,
+            source=IncidentSource.IOT,
+            latitude=latitude,
+            longitude=longitude,
+            zone_id=zone_id,
+        )
+    except ConflictError:
+        return
+
+    create_notification(
+        db=db,
+        user_id=None,
+        event_type="health.emergency",
+        channel=NotificationChannel.IN_APP,
+        severity=NotificationSeverity.CRITICAL,
+        related_entity_type=EntityType.INCIDENT,
+        related_entity_id=incident.id,
+        context={
+            "tourist_id": tourist_id,
+            "reason": reason,
+        },
+    )
+
+    create_outbox_event(
+        db=db,
+        topic="health.alert",
+        payload={
+            "tourist_id": tourist_id,
+            "incident_id": incident.id,
+            "reason": reason,
+        },
+    )
+
+    create_audit_log(
+        db=db,
+        user_id=tourist_id,
+        action=AuditAction.CREATE_INCIDENT,
+        entity_type=EntityType.INCIDENT,
+        entity_id=incident.id,
+        new_value={
+            "auto_triggered": True,
+            "reason": reason,
+        },
+    )
+
+    _log(
+        "Health auto-incident triggered",
+        tourist_id=tourist_id,
+        reason=reason,
+    )

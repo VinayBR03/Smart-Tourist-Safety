@@ -18,7 +18,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
-  const { notifications, clearNotifications } = useWebSocket();
+  const { notifications=[], clearNotifications } = useWebSocket();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 

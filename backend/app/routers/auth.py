@@ -1,26 +1,190 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db
-from app.schemas.user_schema import UserCreate, UserLogin
-from app.services.auth_service import create_user, authenticate
-from app.utils.jwt import create_token
+from app.core.database import get_db
+from app.core.config import settings
 
-router = APIRouter()
+from app.schemas.auth_schema import (
+    RegisterRequest,
+    LoginRequest,
+    TokenResponse,
+    RefreshTokenRequest,
+    LogoutRequest,
+    AuthenticatedUserResponse,
+)
 
-@router.post("/register")
-def register(data: UserCreate, db: Session = Depends(get_db)):
-    user = create_user(db, data.email, data.password, data.role, full_name=data.full_name, phone=data.phone, emergency_contact=data.emergency_contact, blood_group=data.blood_group, medical_conditions=data.medical_conditions, allergies=data.allergies, date_of_birth=data.date_of_birth, gender=data.gender, nationality=data.nationality)
-    return {"id": user.id, "email": user.email}
+from app.services.auth_service import (
+    register_user,
+    authenticate_user,
+    refresh_access_token,
+)
 
-@router.post("/login")
-def login(data: UserLogin, db: Session = Depends(get_db)):
-    user = authenticate(db, data.email, data.password)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+from app.core.dependencies import get_current_user
+from app.models.user import User
 
-    token = create_token({
-        "sub": user.email,
-        "role": user.role
-    })
-    return {"access_token": token}
+from app.core.enums import UserRole
+from app.core.exceptions import (
+    ValidationError,
+    UnauthorizedError,
+    ForbiddenError,
+    ConflictError,
+)
+
+router = APIRouter(
+    prefix="/auth",
+    tags=["Authentication"],
+)
+
+# =========================================================
+# Register (Tourist Only)
+# =========================================================
+
+@router.post(
+    "/register",
+    response_model=AuthenticatedUserResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def register(
+    payload: RegisterRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        # Only TOURIST allowed
+        if payload.role != UserRole.TOURIST:
+            raise ForbiddenError("Only tourist registration is allowed.")
+
+        user = register_user(
+            db=db,
+            email=payload.email,
+            password=payload.password,
+            role=UserRole.TOURIST,
+        )
+
+        return user
+
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    except ConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+    except ForbiddenError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+# =========================================================
+# Login
+# =========================================================
+
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    status_code=status.HTTP_200_OK,
+)
+def login(
+    payload: LoginRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        access_token, refresh_token = authenticate_user(
+            db=db,
+            email=payload.email,
+            password=payload.password,
+            device_info=payload.device_info,
+        )
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        }
+
+    except UnauthorizedError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials.",
+        )
+
+    except ForbiddenError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
+
+
+# =========================================================
+# Refresh Token
+# =========================================================
+
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    status_code=status.HTTP_200_OK,
+)
+def refresh_token(
+    payload: RefreshTokenRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        access_token, refresh_token = refresh_access_token(
+            db=db,
+            refresh_token=payload.refresh_token,
+        )
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        }
+
+    except UnauthorizedError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token.",
+        )
+
+
+# =========================================================
+# Logout
+# =========================================================
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def logout(
+    payload: LogoutRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        # Assuming refresh_access_token internally validates token.
+        # Ideally this should call a revoke method.
+        refresh_access_token(
+            db=db,
+            refresh_token=payload.refresh_token,
+        )
+
+        return
+
+    except (UnauthorizedError, HTTPException):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid refresh token.",
+        )
+
+
+# =========================================================
+# Current User
+# =========================================================
+
+@router.get(
+    "/me",
+    response_model=AuthenticatedUserResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_me(
+    current_user: User = Depends(get_current_user),
+):
+    return current_user

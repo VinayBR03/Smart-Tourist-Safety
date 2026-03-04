@@ -1,43 +1,143 @@
-from pydantic import BaseModel, EmailStr
+# app/schema/user_schema.py
+
+from datetime import datetime
 from typing import Optional
-from datetime import date
+
+from pydantic import (
+    BaseModel,
+    Field,
+    EmailStr,
+    ConfigDict,
+    field_validator,
+)
+
+from app.core.enums import UserRole, UserLanguage
 
 
-# --------------------------------
-# User Registration (Public = Tourist Only)
-# --------------------------------
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
-    role: str
-
-    full_name: Optional[str] = None
-    phone: Optional[str] = None
-    emergency_contact: Optional[str] = None
-
-    blood_group: Optional[str] = None
-    medical_conditions: Optional[str] = None
-    allergies: Optional[str] = None
-    date_of_birth: Optional[date] = None
-    gender: Optional[str] = None
-    nationality: Optional[str] = None
+# =========================================================
+# Base User Fields (Shared)
+# =========================================================
 
 
-# --------------------------------
-# Login
-# --------------------------------
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
+class UserBase(BaseModel):
+    email: EmailStr = Field(..., max_length=255)
+    full_name: Optional[str] = Field(None, max_length=150)
+    phone: Optional[str] = Field(None, max_length=20)
+    preferred_language: UserLanguage = UserLanguage.EN
+
+    model_config = ConfigDict(
+        extra="forbid",
+        str_strip_whitespace=True,
+    )
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        return value.lower().strip()
+
+    @field_validator("phone")
+    @classmethod
+    def normalize_phone(cls, value: Optional[str]) -> Optional[str]:
+        if value:
+            return value.strip()
+        return value
 
 
-# --------------------------------
-# Basic Tourist Profile (JWT response)
-# --------------------------------
-class TouristProfile(BaseModel):
+# =========================================================
+# Create User (Registration)
+# =========================================================
+
+
+class UserCreateRequest(UserBase):
+    password: str = Field(..., min_length=8, max_length=128)
+
+    role: UserRole = UserRole.TOURIST
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, value: str) -> str:
+        if len(value) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        return value
+
+
+# =========================================================
+# Update Profile (Self-Service)
+# =========================================================
+
+
+class UserUpdateRequest(BaseModel):
+    full_name: Optional[str] = Field(None, max_length=150)
+    phone: Optional[str] = Field(None, max_length=20)
+    preferred_language: Optional[UserLanguage] = None
+
+    model_config = ConfigDict(
+        extra="forbid",
+        str_strip_whitespace=True,
+    )
+
+    @field_validator("phone")
+    @classmethod
+    def normalize_phone(cls, value: Optional[str]) -> Optional[str]:
+        if value:
+            return value.strip()
+        return value
+
+
+# =========================================================
+# Admin Update (Role / Status Control)
+# =========================================================
+
+
+class UserAdminUpdateRequest(BaseModel):
+    role: Optional[UserRole] = None
+    is_active: Optional[bool] = None
+    is_verified: Optional[bool] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+# =========================================================
+# Public User Response
+# =========================================================
+
+
+class UserResponse(BaseModel):
     id: int
     email: EmailStr
-    role: str
+    role: UserRole
+    is_active: bool
+    is_verified: bool
+    preferred_language: UserLanguage
 
-    class Config:
-        from_attributes = True
+    full_name: Optional[str]
+    phone: Optional[str]
+
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        frozen=True,
+    )
+
+
+# =========================================================
+# Admin User Response (Extended)
+# =========================================================
+
+
+class UserAdminResponse(UserResponse):
+    token_version: int
+    last_login: Optional[datetime]
+    password_changed_at: Optional[datetime]
+
+    is_pending_deletion: bool
+    deletion_requested_at: Optional[datetime]
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        frozen=True,
+    )

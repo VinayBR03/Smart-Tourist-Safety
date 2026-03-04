@@ -2,6 +2,7 @@
 // Professional Dashboard with Location Tracking + Map View
 
 import React, { useEffect, useState } from 'react';
+import Toast from 'react-native-toast-message';
 import {
   View,
   Text,
@@ -18,6 +19,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLocation } from '../context/LocationContext';
 import incidentService from '../services/incidentService';
 import { COLORS, SPACING, TYPOGRAPHY, RADIUS } from '../constants/config';
+import AppNavigator from '../navigation/AppNavigator';
 
 type Props = NativeStackScreenProps<any, 'Dashboard'>;
 
@@ -194,6 +196,8 @@ export default function DashboardScreen({ navigation }: Props) {
 
         <View style={{ height: SPACING['2xl'] }} />
       </ScrollView>
+      <AppNavigator />
+      <Toast />
     </>
   );
 }

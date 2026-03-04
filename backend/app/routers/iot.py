@@ -1,69 +1,146 @@
-from fastapi import APIRouter, Depends, Header, HTTPException
-from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db, get_current_iot_device
-from app.schemas.location_event_schema import LocationEventCreate
-from app.schemas.iot_schema import IoTHeartbeat, IoTSOS
-from app.models.location_event import LocationEvent
+from app.core.database import get_db
+from app.core.dependencies import get_current_iot_device
+
 from app.models.iot_device import IoTDevice
 
-router = APIRouter(prefix="/iot", tags=["IoT"])
+from app.schemas.iot_schema import (
+    IoTLocationRequest,
+    IoTHealthRequest,
+    IoTHeartbeatRequest,
+    IoTResponse,
+)
+
+from app.core.exceptions import (
+    ValidationError,
+    NotFoundError,
+    ForbiddenError,
+    ConflictError,
+)
+
+from app.services.device_service import update_heartbeat
+from app.services.iot_service import handle_location_event
 
 
-@router.post("/location")
+router = APIRouter(
+    prefix="/iot",
+    tags=["IoT"],
+)
+
+
+# =========================================================
+# Heartbeat
+# =========================================================
+
+@router.post(
+    "/heartbeat",
+    response_model=IoTResponse,
+    status_code=status.HTTP_200_OK,
+)
+def device_heartbeat(
+    payload: IoTHeartbeatRequest,
+    device: IoTDevice = Depends(get_current_iot_device),
+    db: Session = Depends(get_db),
+):
+
+    try:
+        update_heartbeat(
+            db=db,
+            device_id=device.device_id,
+            battery_percentage=payload.battery_percentage,
+            battery_voltage=payload.battery_voltage,
+            firmware_version=payload.firmware_version,
+        )
+
+        return IoTResponse(status="ok")
+
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# =========================================================
+# Location Event
+# =========================================================
+
+@router.post(
+    "/location",
+    response_model=IoTResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 def ingest_location(
-    data: LocationEventCreate,
+    payload: IoTLocationRequest,
+    device: IoTDevice = Depends(get_current_iot_device),
     db: Session = Depends(get_db),
-    device: IoTDevice = Depends(get_current_iot_device)
 ):
-    event = LocationEvent(
-        **data.model_dump(exclude_unset=True),
-        device_id=device.device_id
-    )
-    db.add(event)
-    db.commit()
-    return {"status": "location_event_saved"}
+
+    try:
+        handle_location_event(
+            db=db,
+            device_id=device.device_id,
+            latitude=payload.latitude,
+            longitude=payload.longitude,
+            rssi=payload.rssi,
+            sos_flag=payload.sos_flag,
+            heart_rate=None,
+            spo2=None,
+            temperature=None,
+            fall_detected=False,
+            battery_percentage=None,
+            battery_voltage=None,
+            firmware_version=None,
+            device_timestamp=payload.recorded_at,
+        )
+
+        return IoTResponse(status="accepted")
+
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except (NotFoundError, ForbiddenError) as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
-@router.post("/heartbeat")
-def heartbeat(
-    data: IoTHeartbeat,
-    local_kw: str,
+# =========================================================
+# Health Event
+# =========================================================
+
+@router.post(
+    "/health",
+    response_model=IoTResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def ingest_health(
+    payload: IoTHealthRequest,
+    device: IoTDevice = Depends(get_current_iot_device),
     db: Session = Depends(get_db),
-    x_api_key: str = Header(...)
 ):
-    device = db.query(IoTDevice).filter(
-        IoTDevice.device_id == data.device_id,
-        IoTDevice.api_key == x_api_key
-    ).first()
 
-    if not device:
-        raise HTTPException(status_code=401, detail="Invalid device or API key")
+    try:
+        handle_location_event(
+            db=db,
+            device_id=device.device_id,
+            latitude=payload.latitude,
+            longitude=payload.longitude,
+            rssi=None,
+            sos_flag=False,
+            heart_rate=payload.heart_rate,
+            spo2=payload.spo2,
+            temperature=payload.body_temperature,
+            fall_detected=False,
+            battery_percentage=None,
+            battery_voltage=None,
+            firmware_version=None,
+            device_timestamp=payload.recorded_at,
+        )
 
-    device.status = data.status
-    device.last_seen = datetime.utcnow()   # ✅ REQUIRED
-    db.commit()
+        return IoTResponse(status="accepted")
 
-    return {
-        "message": "heartbeat received",
-        "device_id": device.device_id,
-        "last_seen": device.last_seen
-    }
-
-
-@router.post("/sos")
-def sos_event(
-    data: IoTSOS,
-    db: Session = Depends(get_db),
-    device: IoTDevice = Depends(get_current_iot_device)
-):
-    event = LocationEvent(
-        tourist_id=data.tourist_id,
-        device_id=device.device_id,
-        source="SOS",
-        sos_flag=True
-    )
-    db.add(event)
-    db.commit()
-    return {"status": "sos_recorded"}
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except (NotFoundError, ForbiddenError) as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e))

@@ -1,68 +1,56 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
-import useSound from "../hooks/useSound";
-import alertSound from "../assets/alert.mp3";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { API_CONFIG, STORAGE_KEYS } from "../constants/config";
 
-const WebSocketContext = createContext();
+const WebSocketContext = createContext(null);
 
 export const WebSocketProvider = ({ children }) => {
   const socketRef = useRef(null);
+
   const [notifications, setNotifications] = useState([]);
-  const playSound = useSound(alertSound);
+  const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    connect();
-    return () => disconnect();
+    const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    if (!token) return;
+
+    const wsUrl = `${API_CONFIG.WS_URL}?token=${token}`;
+
+    const socket = new WebSocket(wsUrl);
+    socketRef.current = socket;
+
+    socket.onopen = () => {
+      console.log("WebSocket Connected");
+      setConnected(true);
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        setNotifications((prev) => [data, ...prev]);
+      } catch (err) {
+        console.error("Invalid WS message", err);
+      }
+    };
+
+    socket.onclose = () => {
+      console.log("WebSocket Disconnected");
+      setConnected(false);
+    };
+
+    socket.onerror = (err) => {
+      console.error("WebSocket Error", err);
+    };
+
+    return () => {
+      socket.close();
+    };
   }, []);
-
-  const connect = () => {
-    if (socketRef.current) return;
-
-    const ws = new WebSocket("ws://localhost:8000/ws/dashboard");
-
-    ws.onopen = () => {
-      console.log("WebSocket connected");
-    };
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-
-      if (data.type === "incident_created") {
-        addNotification("New Incident Reported");
-        playSound();
-      }
-
-      if (data.type === "incident_updated") {
-        addNotification("Incident Status Updated");
-      }
-
-      if (data.type === "tourist_created") {
-        addNotification("New Tourist Registered");
-      }
-    };
-
-    ws.onclose = () => {
-      console.log("WebSocket disconnected");
-      socketRef.current = null;
-      setTimeout(connect, 3000); // auto reconnect
-    };
-
-    ws.onerror = () => {
-      ws.close();
-    };
-
-    socketRef.current = ws;
-  };
-
-  const disconnect = () => {
-    socketRef.current?.close();
-  };
-
-  const addNotification = (message) => {
-    setNotifications((prev) => [
-      { id: Date.now(), message },
-      ...prev,
-    ]);
-  };
 
   const clearNotifications = () => {
     setNotifications([]);
@@ -72,6 +60,7 @@ export const WebSocketProvider = ({ children }) => {
     <WebSocketContext.Provider
       value={{
         notifications,
+        connected,
         clearNotifications,
       }}
     >
@@ -80,4 +69,10 @@ export const WebSocketProvider = ({ children }) => {
   );
 };
 
-export const useWebSocket = () => useContext(WebSocketContext);
+export const useWebSocket = () => {
+  const context = useContext(WebSocketContext);
+  if (!context) {
+    throw new Error("useWebSocket must be used within WebSocketProvider");
+  }
+  return context;
+};

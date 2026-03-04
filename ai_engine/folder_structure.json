@@ -1,0 +1,104 @@
+{
+    "ai_engine": [
+        "README.md",
+        {
+            "api": [
+                "routes.py",
+                "schemas.py"
+            ]
+        },
+        {
+            "artifacts": [
+                {
+                    "crowd": [
+                        "isolation_v1.pkl",
+                        "online_v1.pkl"
+                    ]
+                },
+                {
+                    "health": [
+                        "lstm_v1.pkl",
+                        "rf_v1.pkl"
+                    ]
+                },
+                {
+                    "zone_risk": [
+                        "logistic_v1.pkl",
+                        "xgboost_v1.pkl"
+                    ]
+                }
+            ]
+        },
+        "config.py",
+        {
+            "core": [
+                "settings.py"
+            ]
+        },
+        {
+            "data": [
+                "feature_crowd.py",
+                "feature_health.py",
+                "feature_zone.py",
+                "preprocessing.py"
+            ]
+        },
+        {
+            "inference": [
+                "crowd_predictor.py",
+                "engine.py",
+                "health_predictor.py",
+                "zone_predictor.py"
+            ]
+        },
+        "main.py",
+        "model_registry.py",
+        {
+            "models": [
+                "base_model.py",
+                {
+                    "crowd": [
+                        "isolation_forest_model.py",
+                        "online_model.py",
+                        "selector.py"
+                    ]
+                },
+                {
+                    "health": [
+                        "lstm_model.py",
+                        "random_forest_model.py",
+                        "selector.py"
+                    ]
+                },
+                {
+                    "zone": [
+                        "logistic_model.py",
+                        "selector.py",
+                        "xgboost_model.py"
+                    ]
+                }
+            ]
+        },
+        {
+            "monitoring": [
+                "drift_monitor.py",
+                "retraining_scheduler.py"
+            ]
+        },
+        "requirements.lock.txt",
+        "requirements.txt",
+        "structure_json.py",
+        {
+            "tasks": [
+                "ml_retraining_tasks.py"
+            ]
+        },
+        {
+            "training": [
+                "crowd_trainer.py",
+                "health_trainer.py",
+                "zone_trainer.py"
+            ]
+        }
+    ]
+}
