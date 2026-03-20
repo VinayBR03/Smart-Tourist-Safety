@@ -4,7 +4,7 @@ import uuid
 import re
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
+from sqlalchemy import func
 
 from app.models.media import Media
 from app.models.user import User
@@ -26,23 +26,27 @@ from app.core.exceptions import (
 )
 
 from app.core.s3_client import S3Client
-s3_client = S3Client()
 from app.services.audit_service import create_audit_log
 from app.services.outbox_service import create_outbox_event
 from app.core.rate_limiter import RateLimiter
+from app.core.config import settings
 
 
+s3_client = S3Client()
 rate_limiter = RateLimiter()
 
-MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024
-MAX_INCIDENT_MEDIA_BYTES = 50 * 1024 * 1024
-MAX_MEDIA_PER_INCIDENT = 20
+
+MAX_PROFILE_PHOTO_BYTES = settings.MAX_PROFILE_PHOTO_BYTES
+MAX_INCIDENT_MEDIA_BYTES = settings.MAX_INCIDENT_MEDIA_BYTES
+MAX_MEDIA_PER_INCIDENT = settings.MAX_MEDIA_PER_INCIDENT
+
 
 ALLOWED_CONTENT_TYPES = {
     "image/jpeg",
     "image/png",
     "video/mp4",
 }
+
 
 S3_KEY_REGEX = re.compile(r"^[a-zA-Z0-9/_\-.]+$")
 
@@ -69,8 +73,8 @@ def generate_presigned_upload(
     rate_limiter.enforce(
         prefix="media_upload",
         identifier=str(user_id),
-        limit=20,
-        window_seconds=60,
+        limit=settings.MEDIA_UPLOAD_RATE_LIMIT,
+        window_seconds=settings.MEDIA_UPLOAD_RATE_WINDOW_SECONDS,
     )
 
     if content_type not in ALLOWED_CONTENT_TYPES:
@@ -88,6 +92,10 @@ def generate_presigned_upload(
     if not user:
         raise NotFoundError("User")
 
+    # -----------------------------------------------------
+    # PROFILE PHOTO
+    # -----------------------------------------------------
+
     if media_type == MediaType.PROFILE_PHOTO:
 
         if incident_id is not None:
@@ -98,6 +106,10 @@ def generate_presigned_upload(
 
         if file_size_bytes > MAX_PROFILE_PHOTO_BYTES:
             raise ValidationError("Profile photo too large")
+
+    # -----------------------------------------------------
+    # INCIDENT MEDIA
+    # -----------------------------------------------------
 
     else:
 
@@ -112,6 +124,7 @@ def generate_presigned_upload(
         if not incident:
             raise NotFoundError("Incident")
 
+        # Tourist evidence upload
         if media_type in {
             MediaType.INCIDENT_EVIDENCE_PHOTO,
             MediaType.INCIDENT_EVIDENCE_VIDEO,
@@ -126,6 +139,7 @@ def generate_presigned_upload(
             if incident.status == IncidentStatus.CLOSED.value:
                 raise ForbiddenError("Incident closed")
 
+        # Authority resolution media
         elif media_type in {
             MediaType.INCIDENT_RESOLUTION_PHOTO,
             MediaType.INCIDENT_RESOLUTION_VIDEO,
@@ -188,8 +202,9 @@ def confirm_media_upload(
         return existing
 
     metadata = s3_client.get_object_metadata(s3_key)
-    if not isinstance(metadata, dict):
-        raise ValidationError("Invalid S3 metadata")
+
+    if not metadata:
+        raise ValidationError("Uploaded file not found")
 
     size = metadata.get("size")
     content_type = metadata.get("content_type")
@@ -197,8 +212,17 @@ def confirm_media_upload(
     if content_type not in ALLOWED_CONTENT_TYPES:
         raise ValidationError("Invalid uploaded content type")
 
-    if size > MAX_INCIDENT_MEDIA_BYTES:
+    # Profile photo size validation
+    if media_type == MediaType.PROFILE_PHOTO and size > MAX_PROFILE_PHOTO_BYTES:
+        raise ValidationError("Profile photo too large")
+
+    # Incident media size validation
+    if media_type != MediaType.PROFILE_PHOTO and size > MAX_INCIDENT_MEDIA_BYTES:
         raise ValidationError("File too large")
+
+    # -----------------------------------------------------
+    # Incident media limit
+    # -----------------------------------------------------
 
     if media_type != MediaType.PROFILE_PHOTO:
 
@@ -290,12 +314,12 @@ def _generate_s3_key(
     unique = uuid.uuid4().hex
 
     if media_type == MediaType.PROFILE_PHOTO:
-        return f"profile/{user_id}/{unique}"
+        return f"profile-photo/{user_id}/{unique}"
 
     if media_type in {
         MediaType.INCIDENT_EVIDENCE_PHOTO,
         MediaType.INCIDENT_EVIDENCE_VIDEO,
     }:
-        return f"incident/{incident_id}/evidence/{unique}"
+        return f"incident-media/{incident_id}/evidence/{unique}"
 
-    return f"incident/{incident_id}/resolution/{unique}"
+    return f"incident-media/{incident_id}/resolution/{unique}"

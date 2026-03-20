@@ -31,4 +31,6 @@ Thumbs.db
 .coverage
 .coverage.*
 htmlcov/
-coverage.xml
+coverage.xmlsecrets/
+*.env.docker
+celerybeat-schedule

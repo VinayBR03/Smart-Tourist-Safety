@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+/* =========================================================
+CSS RESET
+========================================================= */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+
+/* =========================================================
+BASE TYPOGRAPHY
+========================================================= */
+
+body {
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Inter",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+
+  line-height: 1.5;
+  font-size: 16px;
+
+  /* fallback colors in case theme variables fail */
+  background: var(--color-bg, #f8fafc);
+  color: var(--color-text-primary, #0f172a);
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+
+/* =========================================================
+LINKS
+========================================================= */
+
+a {
+  color: var(--color-primary, #2563eb);
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+a:hover {
+  color: var(--color-primary-hover, #1d4ed8);
+}
+
+
+/* =========================================================
+BUTTON RESET
+========================================================= */
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+
+/* =========================================================
+INPUT RESET
+========================================================= */
+
+input,
+textarea,
+select {
+  font-family: inherit;
+  outline: none;
+}
+
+
+/* =========================================================
+SCROLLBAR STYLING
+========================================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface, #ffffff);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border, #e2e8f0);
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted, #64748b);
+}
+
+
+/* =========================================================
+UTILITY CLASSES
+========================================================= */
+
+.page-container {
+  padding: 24px;
+}
+
+.section-spacing {
+  margin-bottom: 24px;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.full-height {
+  height: 100%;
+}
+
+.text-muted {
+  color: var(--color-text-muted, #64748b);
+}

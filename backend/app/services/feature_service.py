@@ -36,8 +36,8 @@ MIN_WINDOW_MINUTES = 1
 def extract_zone_features(
     db: Session,
     *,
-    zone_id: int,
-    window_minutes=60,
+    zone_id:        int,
+    window_minutes: int = 60,
 ) -> Dict[str, float]:
 
     if db is None:
@@ -57,7 +57,7 @@ def extract_zone_features(
     if window_minutes > MAX_WINDOW_MINUTES:
         raise ValidationError("Window exceeds maximum allowed size")
 
-    now = datetime.now(timezone.utc)
+    now          = datetime.now(timezone.utc)
     window_start = now - timedelta(minutes=window_minutes)
 
     if window_start > now:
@@ -75,8 +75,7 @@ def extract_zone_features(
             ),
             Incident.created_at >= window_start,
         )
-        .scalar()
-        or 0
+        .scalar() or 0
     )
 
     sos_count = (
@@ -86,8 +85,7 @@ def extract_zone_features(
             LocationEvent.sos_flag.is_(True),
             LocationEvent.timestamp >= window_start,
         )
-        .scalar()
-        or 0
+        .scalar() or 0
     )
 
     event_count = (
@@ -96,8 +94,7 @@ def extract_zone_features(
             LocationEvent.zone_id == zone_id,
             LocationEvent.timestamp >= window_start,
         )
-        .scalar()
-        or 0
+        .scalar() or 0
     )
 
     zone_status = (
@@ -112,14 +109,18 @@ def extract_zone_features(
         previous_risk = 0.0
 
     features = {
-        "incident_count": float(incident_count),
-        "sos_count": float(sos_count),
-        "event_count": float(event_count),
+        "incident_count":     float(incident_count),
+        "sos_count":          float(sos_count),
+        "event_count":        float(event_count),
         "previous_risk_score": float(previous_risk),
-        "window_minutes": float(window_minutes),
+        "window_minutes":     float(window_minutes),
     }
 
-    if tuple(features.keys()) != ZONE_FEATURE_KEYS:
+    # ── FIX: set comparison instead of tuple comparison ──
+    # Tuple comparison requires identical insertion order.
+    # Set comparison is order-independent and won't raise a
+    # false mismatch if keys are added in a different order.
+    if set(features.keys()) != set(ZONE_FEATURE_KEYS):
         raise ValidationError("Zone feature schema mismatch")
 
     logger.debug("Zone features extracted", extra={"zone_id": zone_id})

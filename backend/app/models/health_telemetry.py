@@ -10,6 +10,7 @@ from sqlalchemy import (
     Index,
     CheckConstraint,
     DateTime,
+    BigInteger,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -20,23 +21,42 @@ from app.core.database import Base
 
 class HealthTelemetry(Base):
     """
-    Append-only high-frequency telemetry table.
+    Append-only high-frequency telemetry table backed by TimescaleDB.
 
-    Designed for:
-    - Alert detection
-    - ML ingestion
-    - Time-series analytics
-    - Horizontal scaling
+    TimescaleDB requirements
+    ────────────────────────
+    - The hypertable partition column (recorded_at) MUST be part of the
+      primary key. We use a composite PK (id, recorded_at).
+    - id uses BigInteger (BIGSERIAL) — at 100k tourists × 1 row/30s that's
+      ~10M rows/day; int4 would overflow in ~200 days of operation.
+    - Compression is configured via SQL after hypertable creation (see
+      database.py → setup_timescaledb() and migration script).
+
+    Query patterns (all served by TimescaleDB chunk pruning + indexes):
+    - Latest record per tourist           → ix_health_tourist_time DESC
+    - Alerts in time range                → ix_health_critical_alerts
+    - Tourist alert history               → ix_health_alert_lookup
+    - Spatial queries                     → ix_health_spatial (GIST)
     """
 
     __tablename__ = "health_telemetry"
 
     # =========================================================
-    # Primary Key
+    # Primary Key — composite to satisfy TimescaleDB hypertable
+    # constraint (partition column must be in PK)
     # =========================================================
 
     id: Mapped[int] = mapped_column(
+        BigInteger,
         primary_key=True,
+        autoincrement=True,
+    )
+
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        primary_key=True,                          # ← part of composite PK
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
     )
 
     # =========================================================
@@ -44,7 +64,7 @@ class HealthTelemetry(Base):
     # =========================================================
 
     tourist_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="RESTRICT"),  # protect historical data
+        ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
     )
@@ -55,9 +75,8 @@ class HealthTelemetry(Base):
         index=True,
     )
 
-    # Optional ORM navigation
-    tourist = relationship("User", lazy="selectin")
-    device = relationship("IoTDevice", lazy="selectin")
+    tourist = relationship("User",      lazy="selectin")
+    device  = relationship("IoTDevice", lazy="selectin")
 
     # =========================================================
     # Health Metrics
@@ -107,67 +126,56 @@ class HealthTelemetry(Base):
     # =========================================================
 
     location: Mapped[str | None] = mapped_column(
-    Geography(
-        geometry_type="POINT",
-        srid=4326,
-        spatial_index=False
-    ),
-    nullable=True,
-)
-
-    # =========================================================
-    # Timestamp (Immutable)
-    # =========================================================
-
-    recorded_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=text("CURRENT_TIMESTAMP"),
-        nullable=False,
-        index=True,
+        Geography(
+            geometry_type="POINT",
+            srid=4326,
+            spatial_index=False,
+        ),
+        nullable=True,
     )
 
     # =========================================================
-    # Constraints & Indexing
+    # Constraints & Indexes
     # =========================================================
 
     __table_args__ = (
 
-        # At least one health metric must exist
+        # ── Check constraints ──────────────────────────────
+
         CheckConstraint(
             "(heart_rate IS NOT NULL OR spo2 IS NOT NULL OR body_temperature IS NOT NULL)",
             name="ck_health_at_least_one_metric",
         ),
-
-        # Physiological realistic bounds
         CheckConstraint(
             "heart_rate IS NULL OR heart_rate BETWEEN 20 AND 250",
             name="ck_health_heart_rate_realistic_range",
         ),
-
         CheckConstraint(
             "spo2 IS NULL OR spo2 BETWEEN 50 AND 100",
             name="ck_health_spo2_realistic_range",
         ),
-
         CheckConstraint(
             "body_temperature IS NULL OR body_temperature BETWEEN 30 AND 45",
             name="ck_health_temp_realistic_range",
         ),
-
-        # Prevent corrupted time ingestion (allow slight clock drift)
         CheckConstraint(
             "recorded_at <= (NOW() + INTERVAL '5 minutes')",
             name="ck_health_no_far_future_records",
         ),
 
-        # Time-series lookup (primary query pattern)
+        # ── Indexes ───────────────────────────────────────
+        # TimescaleDB automatically creates a per-chunk index on the
+        # partition column (recorded_at). All indexes below are on
+        # top of that and benefit from chunk pruning automatically.
+
+        # Primary query pattern: tourist history sorted by time
         Index(
             "ix_health_tourist_time",
             "tourist_id",
             "recorded_at",
         ),
 
-        # Alert-based query optimization
+        # Alert dashboard: tourist + alert flag + time
         Index(
             "ix_health_alert_lookup",
             "tourist_id",
@@ -175,7 +183,7 @@ class HealthTelemetry(Base):
             "recorded_at",
         ),
 
-        # Critical alert scanning
+        # Fast recent-alert scan across all tourists
         Index(
             "ix_health_critical_alerts",
             "recorded_at",

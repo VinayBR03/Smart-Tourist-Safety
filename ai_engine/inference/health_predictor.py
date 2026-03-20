@@ -14,6 +14,9 @@ class HealthPredictor:
     - Delegate prediction to model
     """
 
+    # Physiological features only — no device metrics.
+    # previous_health_score gives LSTM temporal context
+    # (was this tourist already showing anomalies?).
     REQUIRED_FEATURES = {
         "heart_rate",
         "spo2",

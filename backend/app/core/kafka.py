@@ -2,6 +2,7 @@
 
 import json
 import uuid
+
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
@@ -14,16 +15,44 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+producer: Optional[KafkaProducer] = None
+
+
+# =========================================================
+# Topic Constants
+# =========================================================
+
+class KafkaTopic:
+    # IoT ingestion — published by Go MQTT worker, consumed by kafka_consumer.py
+    IOT_TELEMETRY          = "iot.telemetry"
+
+    # Incident lifecycle
+    INCIDENT_CREATED       = "incident.created"
+    INCIDENT_UPDATED       = "incident.updated"
+    INCIDENT_RESOLVED      = "incident.resolved"
+    INCIDENT_SOS_TRIGGERED = "incident.sos_triggered"
+
+    # Notifications
+    NOTIFICATION_DISPATCH  = "notification.dispatch"
+
+    # Media
+    MEDIA_UPLOADED         = "media.uploaded"
+
+    # Location
+    LOCATION_EVENT         = "location.event"
+
+    # Zone
+    ZONE_RISK_UPDATED      = "zone.risk.updated"
+
+
+# =========================================================
+# Producer
+# =========================================================
 
 class KafkaClient:
-    _producer: Optional[KafkaProducer] = None
 
-    # =========================================================
-    # Create Producer
-    # =========================================================
-
-    @classmethod
-    def _create_producer(cls) -> KafkaProducer:
+    @staticmethod
+    def create_producer() -> KafkaProducer:
         return KafkaProducer(
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
             key_serializer=lambda k: str(k).encode("utf-8"),
@@ -33,53 +62,23 @@ class KafkaClient:
             linger_ms=5,
             compression_type="gzip",
             enable_idempotence=True,
-            max_in_flight_requests_per_connection=1,  # safer for idempotence
+            max_in_flight_requests_per_connection=1,
             request_timeout_ms=15000,
             delivery_timeout_ms=30000,
             retry_backoff_ms=200,
         )
 
-    # =========================================================
-    # Get Producer (Lazy Init)
-    # =========================================================
-
-    @classmethod
-    def get_producer(cls) -> Optional[KafkaProducer]:
-
-        if not settings.ENABLE_KAFKA:
-            logger.debug("Kafka disabled via configuration")
-            return None
-
-        if not settings.KAFKA_BOOTSTRAP_SERVERS:
-            logger.warning("Kafka enabled but no bootstrap servers configured")
-            return None
-
-        if cls._producer is None:
+    @staticmethod
+    def close() -> None:
+        global producer
+        if producer:
             try:
-                cls._producer = cls._create_producer()
-                logger.info("Kafka producer initialized")
+                producer.flush(timeout=10)
+                producer.close(timeout=5)
             except Exception:
-                logger.exception("Kafka initialization failed")
-                cls._producer = None
-                return None
-
-        return cls._producer
-
-    # =========================================================
-    # Shutdown
-    # =========================================================
-
-    @classmethod
-    def close(cls):
-        if cls._producer:
-            try:
-                cls._producer.flush(timeout=10)
-                cls._producer.close(timeout=5)
-                logger.info("Kafka producer closed")
-            except Exception:
-                logger.exception("Kafka shutdown failed")
+                logger.exception("Kafka shutdown error")
             finally:
-                cls._producer = None
+                producer = None
 
 
 # =========================================================
@@ -96,19 +95,25 @@ def publish_event(
     wait_for_ack: bool = False,
 ) -> None:
 
-    producer = KafkaClient.get_producer()
+    global producer
 
-    if not producer:
-        logger.debug("Kafka unavailable. Event skipped.")
-        return
+    if producer is None:
+        if not settings.ENABLE_KAFKA:
+            logger.warning("Kafka disabled — event skipped: %s", topic)
+            return
+        try:
+            producer = KafkaClient.create_producer()
+        except Exception:
+            logger.exception("Kafka producer init failed")
+            return
 
     event = {
-        "event_id": str(uuid.uuid4()),
-        "event_type": event_type or topic,
+        "event_id":      str(uuid.uuid4()),
+        "event_type":    event_type or topic,
         "event_version": "1.0",
-        "occurred_at": datetime.now(timezone.utc).isoformat(),
+        "occurred_at":   datetime.now(timezone.utc).isoformat(),
         "correlation_id": correlation_id,
-        "data": payload,
+        "data":          payload,
     }
 
     try:
@@ -125,14 +130,14 @@ def publish_event(
         future.add_errback(_on_error)
 
     except KafkaError:
-        logger.exception("Kafka publish failed")
+        logger.exception("Kafka publish failed — topic: %s", topic)
 
 
 # =========================================================
 # Callbacks
 # =========================================================
 
-def _on_success(metadata):
+def _on_success(metadata) -> None:
     logger.debug(
         "Kafka delivered topic=%s partition=%s offset=%s",
         metadata.topic,
@@ -141,5 +146,9 @@ def _on_success(metadata):
     )
 
 
-def _on_error(exc):
+def _on_error(exc) -> None:
     logger.error("Kafka delivery failed: %s", str(exc))
+
+
+def _shutdown() -> None:
+    KafkaClient.close()

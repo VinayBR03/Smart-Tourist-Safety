@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, status, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -17,6 +17,7 @@ from app.services.auth_service import (
     register_user,
     authenticate_user,
     refresh_access_token,
+    revoke_refresh_token,
 )
 
 from app.core.dependencies import get_current_user
@@ -83,6 +84,7 @@ def register(
 )
 def login(
     payload: LoginRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     try:
@@ -91,7 +93,10 @@ def login(
             email=payload.email,
             password=payload.password,
             device_info=payload.device_info,
+            ip_address=request.client.host,
         )
+
+        db.commit()
 
         return {
             "access_token": access_token,
@@ -159,16 +164,16 @@ def logout(
     db: Session = Depends(get_db),
 ):
     try:
-        # Assuming refresh_access_token internally validates token.
-        # Ideally this should call a revoke method.
-        refresh_access_token(
+        revoke_refresh_token(
             db=db,
             refresh_token=payload.refresh_token,
         )
 
+        db.commit()
+
         return
 
-    except (UnauthorizedError, HTTPException):
+    except UnauthorizedError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid refresh token.",

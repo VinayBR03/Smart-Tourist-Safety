@@ -24,8 +24,8 @@ class SimpleLSTM(nn.Module):
 
     def __init__(self, input_size: int, hidden_size: int = 32) -> None:
         super().__init__()
-        self.lstm = nn.LSTM(input_size, hidden_size, batch_first=True)
-        self.fc = nn.Linear(hidden_size, 1)
+        self.lstm    = nn.LSTM(input_size, hidden_size, batch_first=True)
+        self.fc      = nn.Linear(hidden_size, 1)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x: Tensor) -> Tensor:
@@ -54,15 +54,20 @@ class LSTMHealthModel(SupervisedModel[SimpleLSTM]):
     def __init__(self) -> None:
         super().__init__(model_name="health_lstm")
 
+        # Strictly physiological features.
+        # previous_health_score gives the LSTM temporal context —
+        # a tourist with consistently elevated anomaly scores needs
+        # less new evidence to trigger an alert than one starting
+        # from a clean baseline.
         self.feature_order: List[str] = [
             "heart_rate",
             "spo2",
             "temperature",
             "movement_variance",
-            "battery_level",
+            "previous_health_score",
         ]
 
-        self.input_size: int = len(self.feature_order)
+        self.input_size: int      = len(self.feature_order)
         self.device: torch.device = torch.device("cpu")
 
         model = SimpleLSTM(self.input_size)
@@ -72,7 +77,7 @@ class LSTMHealthModel(SupervisedModel[SimpleLSTM]):
         self.model = model
 
         self.metadata = {
-            "model_type": "lstm",
+            "model_type":    "lstm",
             "model_version": self.MODEL_VERSION,
             "feature_order": self.feature_order,
         }
@@ -103,7 +108,14 @@ class LSTMHealthModel(SupervisedModel[SimpleLSTM]):
         if self.model is None:
             raise RuntimeError("Model instance not initialized")
 
-        state_dict = torch.load(model_path, map_location=self.device)
+        # weights_only=True: safe loading — prevents arbitrary code
+        # execution from pickle data inside .pt files.
+        # Required in torch >= 2.4 to avoid FutureWarning.
+        state_dict = torch.load(
+            model_path,
+            map_location=self.device,
+            weights_only=True,
+        )
 
         if not isinstance(state_dict, dict):
             raise ValueError("Invalid LSTM state dict")
@@ -116,7 +128,7 @@ class LSTMHealthModel(SupervisedModel[SimpleLSTM]):
                 self.metadata = json.load(f)
         else:
             self.metadata = {
-                "model_type": "lstm",
+                "model_type":    "lstm",
                 "model_version": self.MODEL_VERSION,
             }
 
@@ -135,20 +147,19 @@ class LSTMHealthModel(SupervisedModel[SimpleLSTM]):
         tensor: Tensor = self._dict_to_tensor(features)
 
         with torch.no_grad():
-            output: Tensor = self.model(tensor)
+            output: Tensor     = self.model(tensor)
             probability: float = float(
                 output.squeeze().detach().cpu().numpy()
             )
 
-        probability = self._clamp_probability(probability)
-
+        probability    = self._clamp_probability(probability)
         is_anomaly: bool = probability >= HEALTH_ANOMALY_THRESHOLD
 
         return {
             "anomaly_score": round(probability, 6),
-            "is_anomaly": is_anomaly,
+            "is_anomaly":    is_anomaly,
             "model_version": self.metadata.get("model_version", self.MODEL_VERSION),
-            "model_type": "lstm",
+            "model_type":    "lstm",
         }
 
     # =========================================================
@@ -173,13 +184,7 @@ class LSTMHealthModel(SupervisedModel[SimpleLSTM]):
         arr: NDArray[np.float32] = np.asarray(values, dtype=np.float32)
         arr = arr.reshape(1, 1, -1)
 
-        tensor: Tensor = torch.tensor(
-            arr,
-            dtype=torch.float32,
-            device=self.device,
-        )
-
-        return tensor
+        return torch.tensor(arr, dtype=torch.float32, device=self.device)
 
     @staticmethod
     def _clamp_probability(value: float) -> float:

@@ -7,7 +7,7 @@ def get_structure(path):
     
     if os.path.isdir(path):
         # Filter: Skip if starts with '_' OR if the name is 'venv' or '.git'
-        exclude = {'venv', '.git', '.vscode'}
+        exclude = {'venv', '.git', '.vscode', '__pycache__', 'node_modules'}
         items = [x for x in os.listdir(path) if not x.startswith('_') and x not in exclude]
         items.sort() 
         
@@ -26,5 +26,5 @@ def save_structure_to_json(root_path, output_file):
         json.dump(structure, f, indent=4, ensure_ascii=False)
 
 if __name__ == "__main__":
-    save_structure_to_json('tests', 'folder_structure.json')
+    save_structure_to_json('c:\\Users\\Vinay B R\\Desktop\\Smart Tourist Safety System\\backend\\app', 'folder_structure.json')
     print("Clean JSON structure generated!")

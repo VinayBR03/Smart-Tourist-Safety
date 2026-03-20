@@ -62,10 +62,10 @@ class CrowdTrainer:
 
     def _train_batch_model(
         self,
-        model: IsolationForestCrowdModel,
+        model:   IsolationForestCrowdModel,
         X_train: NDArray[np.float64],
-        X_val: NDArray[np.float64],
-        y_val: NDArray[np.int64] | None,
+        X_val:   NDArray[np.float64],
+        y_val:   NDArray[np.int64] | None,
     ) -> None:
 
         model.train(X_train)
@@ -80,12 +80,12 @@ class CrowdTrainer:
         model.metadata.update(metrics)
         model.metadata.update({
             "dataset_size": int(len(X_train) + len(X_val)),
-            "drift_score": round(drift, 6),
+            "drift_score":  round(drift, 6),
         })
 
         model.save(
             self.crowd_dir / CROWD_ARTIFACT.small_model_filename,
-            self.crowd_dir / "crowd_isolation_meta.json",
+            self.crowd_dir / CROWD_ARTIFACT.small_metadata_filename,  # from config
         )
 
     # =========================================================
@@ -105,18 +105,15 @@ class CrowdTrainer:
         sklearn_model = cast(IsolationForest, model.model)
 
         raw_scores: NDArray[np.float64] = sklearn_model.decision_function(X_val)
-
-        # Normalize like model.predict
         anomaly_scores: NDArray[np.float64] = np.clip(-raw_scores, 0.0, 1.0)
-
         preds: NDArray[np.int64] = (anomaly_scores >= 0.5).astype(np.int64)
 
         auc: float = float(roc_auc_score(y_val, anomaly_scores))
-        f1: float = float(f1_score(y_val, preds))
+        f1:  float = float(f1_score(y_val, preds))
 
         return {
             "validation_auc": round(auc, 6),
-            "validation_f1": round(f1, 6),
+            "validation_f1":  round(f1,  6),
         }
 
     # =========================================================
@@ -136,15 +133,12 @@ class CrowdTrainer:
 
         if y is None:
             X_train, X_val = train_test_split(
-                X,
-                test_size=0.2,
-                random_state=42,
+                X, test_size=0.2, random_state=42,
             )
             return X_train, X_val, None, None
 
         X_train, X_val, y_train, y_val = train_test_split(
-            X,
-            y,
+            X, y,
             test_size=0.2,
             random_state=42,
             stratify=y if len(np.unique(y)) > 1 else None,
@@ -159,13 +153,13 @@ class CrowdTrainer:
     def _compute_drift(
         self,
         X_train: NDArray[np.float64],
-        X_val: NDArray[np.float64],
+        X_val:   NDArray[np.float64],
     ) -> float:
 
         train_mean: NDArray[np.float64] = np.mean(X_train, axis=0)
-        val_mean: NDArray[np.float64] = np.mean(X_val, axis=0)
+        val_mean:   NDArray[np.float64] = np.mean(X_val,   axis=0)
 
-        diff: NDArray[np.float64] = np.abs(train_mean - val_mean)
-        drift: float = float(np.mean(diff))
+        diff:  NDArray[np.float64] = np.abs(train_mean - val_mean)
+        drift: float               = float(np.mean(diff))
 
         return min(1.0, drift)

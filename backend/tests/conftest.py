@@ -1,6 +1,9 @@
 import pytest
+import uuid
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from fastapi.testclient import TestClient
 
 from app.core.database import Base, get_db
@@ -9,20 +12,27 @@ from app.main import app
 
 
 # =========================================================
-# FORCE TEST ENVIRONMENT (CRITICAL)
+# FORCE TEST ENVIRONMENT
 # =========================================================
 
 @pytest.fixture(scope="session", autouse=True)
 def force_test_environment():
     """
-    Ensure testing mode disables:
-    - background workers
-    - engine disposal
-    - kafka/redis startup
+    Ensure testing mode disables external services.
     """
+
     settings.ENVIRONMENT = "testing"
+
     settings.ENABLE_KAFKA = False
     settings.ENABLE_REDIS = False
+    settings.ENABLE_S3 = True
+    settings.ENABLE_CELERY = False
+    settings.ENABLE_PUSH = False
+    settings.ENABLE_SMS = False
+    settings.ENABLE_RATE_LIMITER = False
+    settings.ENABLE_WEBSOCKETS = True
+    settings.ML_ENGINE_ENABLED = False
+
     yield
 
 
@@ -50,32 +60,44 @@ TestingSessionLocal = sessionmaker(
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_database():
+
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+
     yield
+
     Base.metadata.drop_all(bind=engine)
 
 
 # =========================================================
-# DB SESSION (ROLLBACK AFTER EACH TEST)
+# DB SESSION
 # =========================================================
 
 @pytest.fixture()
 def db_session():
-    connection = engine.connect()
-    transaction = connection.begin()
+    """
+    Provide a real DB session.
 
-    session = TestingSessionLocal(bind=connection)
+    We allow commits inside tests but clean the database
+    after each test to avoid duplicate key conflicts.
+    """
+
+    session = TestingSessionLocal()
 
     try:
         yield session
     finally:
         session.close()
 
-        if transaction.is_active:
-            transaction.rollback()
+        # CLEAN DATABASE AFTER EACH TEST
+        with engine.connect() as connection:
 
-        connection.close()
+            trans = connection.begin()
+
+            for table in reversed(Base.metadata.sorted_tables):
+                connection.execute(table.delete())
+
+            trans.commit()
 
 
 # =========================================================
@@ -101,23 +123,29 @@ def client(db_session):
 
 
 # =========================================================
-# USER FACTORY FIXTURE
+# USER FACTORY
 # =========================================================
 
 @pytest.fixture()
 def create_user(db_session):
+
     from app.models.user import User
     from app.core.enums import UserRole
     from app.core.security import hash_password
 
     def _create_user(
-        email="test@example.com",
+        email=None,
         password="TestPassword123!",
         role=UserRole.TOURIST,
         is_active=True,
         is_verified=True,
         token_version=0,
     ):
+
+        # Generate unique email automatically
+        if email is None:
+            email = f"user_{uuid.uuid4().hex[:8]}@example.com"
+
         user = User(
             email=email.lower(),
             password_hash=hash_password(password),
@@ -126,9 +154,11 @@ def create_user(db_session):
             is_verified=is_verified,
             token_version=token_version,
         )
+
         db_session.add(user)
         db_session.commit()
         db_session.refresh(user)
+
         return user
 
     return _create_user
@@ -140,6 +170,7 @@ def create_user(db_session):
 
 @pytest.fixture()
 def auth_headers(create_user):
+
     from app.core.security import create_access_token
 
     user = create_user()
@@ -155,11 +186,11 @@ def auth_headers(create_user):
 
 @pytest.fixture()
 def authority_headers(create_user):
+
     from app.core.security import create_access_token
     from app.core.enums import UserRole
 
     user = create_user(
-        email="authority@example.com",
         role=UserRole.AUTHORITY,
     )
 
@@ -174,11 +205,11 @@ def authority_headers(create_user):
 
 @pytest.fixture()
 def admin_headers(create_user):
+
     from app.core.security import create_access_token
     from app.core.enums import UserRole
 
     user = create_user(
-        email="admin@example.com",
         role=UserRole.ADMIN,
     )
 

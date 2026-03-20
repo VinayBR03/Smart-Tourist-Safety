@@ -138,6 +138,6 @@ def render_notification(
         "push_body": push_body,
         "sms_body": sms_body,
         "in_app_message": in_app_message,
-        "template_version": template.get("version", 1),
+        "template_version": locale["meta"]["version"],
         "language": language,
     }

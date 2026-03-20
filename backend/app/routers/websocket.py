@@ -1,3 +1,6 @@
+import json
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status, Depends
 from sqlalchemy.orm import Session
 
@@ -7,7 +10,6 @@ from app.core.enums import UserRole
 from app.models.user import User
 from app.core.websocket_manager import websocket_manager
 from app.utils.logger import get_logger
-
 
 router = APIRouter(tags=["WebSocket"])
 logger = get_logger(__name__)
@@ -24,8 +26,8 @@ def authenticate_websocket(token: str, db: Session) -> User:
 
     payload = decode_access_token(token)
 
-    user_id = payload.get("sub")
-    role = payload.get("role")
+    user_id       = payload.get("sub")
+    role          = payload.get("role")
     token_version = payload.get("token_version")
 
     if user_id is None or role is None or token_version is None:
@@ -55,6 +57,21 @@ def authenticate_websocket(token: str, db: Session) -> User:
 
 
 # =========================================================
+# Heartbeat handler
+# =========================================================
+
+def _handle_message(raw: str, user: User, db: Session) -> None:
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return
+
+    if data.get("type") == "heartbeat":
+        user.last_activity = datetime.now(timezone.utc)
+        db.commit()
+
+
+# =========================================================
 # Tourist Notification Socket
 # =========================================================
 
@@ -63,18 +80,23 @@ async def notification_socket(
     websocket: WebSocket,
     db: Session = Depends(get_db),
 ):
+    if websocket_manager is None:
+        logger.warning("WebSocket connection rejected — WebSockets disabled")
+        await websocket.close(code=status.WS_1001_GOING_AWAY)
+        return
 
     token = websocket.query_params.get("token")
 
-    # 🔐 Authenticate BEFORE accept (important for tests)
     try:
         user = authenticate_websocket(token, db)
-    except Exception:
+    except Exception as e:
+        logger.warning("WebSocket auth failed: %s", str(e))
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    # ✅ Accept only if authenticated
-    await websocket.accept()
+    # Stamp activity on connect
+    user.last_activity = datetime.now(timezone.utc)
+    db.commit()
 
     await websocket_manager.connect(
         user_id=user.id,
@@ -84,8 +106,12 @@ async def notification_socket(
 
     try:
         while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
+            raw = await websocket.receive_text()
+            _handle_message(raw, user, db)
+    except (WebSocketDisconnect, RuntimeError):
+        # RuntimeError: "WebSocket is not connected" — raised when
+        # the manager rejected the connection (limit exceeded) and
+        # closed it after accept(). Safe to ignore.
         await websocket_manager.disconnect(websocket)
 
 
@@ -98,6 +124,10 @@ async def authority_socket(
     websocket: WebSocket,
     db: Session = Depends(get_db),
 ):
+    if websocket_manager is None:
+        logger.warning("WebSocket connection rejected — WebSockets disabled")
+        await websocket.close(code=status.WS_1001_GOING_AWAY)
+        return
 
     token = websocket.query_params.get("token")
 
@@ -107,11 +137,14 @@ async def authority_socket(
         if user.role not in (UserRole.AUTHORITY, UserRole.ADMIN):
             raise Exception("Unauthorized role")
 
-    except Exception:
+    except Exception as e:
+        logger.warning("WebSocket auth failed: %s", str(e))
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    await websocket.accept()
+    # Stamp activity on connect
+    user.last_activity = datetime.now(timezone.utc)
+    db.commit()
 
     await websocket_manager.connect(
         user_id=user.id,
@@ -121,6 +154,7 @@ async def authority_socket(
 
     try:
         while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
+            raw = await websocket.receive_text()
+            _handle_message(raw, user, db)
+    except (WebSocketDisconnect, RuntimeError):
         await websocket_manager.disconnect(websocket)

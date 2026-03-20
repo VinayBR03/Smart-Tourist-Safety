@@ -38,7 +38,9 @@ router = APIRouter(
 # Serializer Helper
 # =========================================================
 
+
 def serialize_location(location: Location) -> dict:
+
     point = to_shape(location.coordinates)
 
     return {
@@ -55,17 +57,20 @@ def serialize_location(location: Location) -> dict:
 # Tourist: Update Own Location
 # =========================================================
 
+
 @router.post(
     "/me",
     response_model=LocationResponse,
     status_code=status.HTTP_200_OK,
 )
-def update_my_location(
+async def update_my_location(
     payload: LocationUpdateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.TOURIST)),
 ):
+
     try:
+
         location = update_user_location(
             db=db,
             user_id=current_user.id,
@@ -78,8 +83,16 @@ def update_my_location(
         return serialize_location(location)
 
     except ValidationError as e:
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    except NotFoundError as e:
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         )
 
@@ -87,6 +100,7 @@ def update_my_location(
 # =========================================================
 # Tourist: Get Own Latest Location
 # =========================================================
+
 
 @router.get(
     "/me",
@@ -97,7 +111,9 @@ def get_my_latest_location(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.TOURIST)),
 ):
+
     try:
+
         location = get_latest_location_for_user(
             db=db,
             user_id=current_user.id,
@@ -106,6 +122,7 @@ def get_my_latest_location(
         return serialize_location(location)
 
     except NotFoundError:
+
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Location not found",
@@ -116,6 +133,7 @@ def get_my_latest_location(
 # Authority: Live Map
 # =========================================================
 
+
 @router.get(
     "/live",
     response_model=List[LocationResponse],
@@ -125,6 +143,7 @@ def fetch_live_locations(
     db: Session = Depends(get_db),
     _: User = Depends(require_roles(UserRole.AUTHORITY, UserRole.ADMIN)),
 ):
+
     locations = get_live_locations(db=db)
 
     return [serialize_location(loc) for loc in locations]
@@ -133,6 +152,7 @@ def fetch_live_locations(
 # =========================================================
 # Authority: Zone Presence Summary
 # =========================================================
+
 
 @router.get(
     "/zone-presence",
@@ -143,4 +163,5 @@ def fetch_zone_presence(
     db: Session = Depends(get_db),
     _: User = Depends(require_roles(UserRole.AUTHORITY, UserRole.ADMIN)),
 ):
+
     return get_zone_presence_summary(db=db)

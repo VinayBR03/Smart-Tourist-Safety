@@ -4,7 +4,7 @@ from contextlib import suppress, asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.database import SessionLocal, engine, check_db_health
+from app.core.database import SessionLocal, engine, check_db_health, setup_timescaledb
 from app.core.config import settings
 from app.core.logging_config import setup_logging
 from app.core.middleware import AppMiddleware
@@ -16,6 +16,7 @@ from app.utils.logger import get_logger
 from app.services.cleanup_service import permanently_delete_expired_accounts
 
 from app.routers import (
+    analytics,
     auth,
     incident,
     tourist,
@@ -26,6 +27,9 @@ from app.routers import (
     media,
     notification,
     zone,
+    user_admin,
+    health,
+    internal,
 )
 
 from app.workers.kafka_consumer import start_kafka_consumer
@@ -41,8 +45,8 @@ logger = get_logger(__name__)
 
 
 cleanup_task_handle = None
-kafka_task_handle = None
-redis_task_handle = None
+kafka_task_handle   = None
+redis_task_handle   = None
 
 
 # =========================================================
@@ -57,6 +61,15 @@ async def lifespan(app: FastAPI):
     global redis_task_handle
 
     logger.info("Application startup initiated")
+
+    # ── TimescaleDB ───────────────────────────────────────
+    # Idempotent — safe on every restart.
+    # Skips gracefully if already configured or if
+    # ENABLE_TIMESCALEDB=false in settings.
+    try:
+        setup_timescaledb()
+    except Exception:
+        logger.exception("TimescaleDB setup failed — continuing startup")
 
     if settings.ENVIRONMENT != "testing":
 
@@ -108,7 +121,6 @@ async def lifespan(app: FastAPI):
             with suppress(asyncio.CancelledError):
                 await task
 
-    # Close infrastructure clients
     RedisClient.close()
     KafkaClient.close()
 
@@ -136,9 +148,8 @@ app = FastAPI(
 
 app.add_middleware(AppMiddleware)
 
-# Safe CORS handling
 if settings.ALLOWED_ORIGINS == "*":
-    allow_origins = ["*"]
+    allow_origins = ["http://172.21.112.1:3000", "http://localhost:3000"]
 else:
     allow_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")]
 
@@ -158,13 +169,17 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(incident.router)
 app.include_router(tourist.router)
+app.include_router(user_admin.router)
 app.include_router(location.router)
 app.include_router(iot.router)
+app.include_router(health.router)
 app.include_router(device.router)
 app.include_router(media.router)
 app.include_router(notification.router)
 app.include_router(zone.router)
+app.include_router(analytics.router)
 app.include_router(websocket.router)
+app.include_router(internal.router)
 
 
 # =========================================================
@@ -174,7 +189,7 @@ app.include_router(websocket.router)
 @app.get("/")
 def health_check():
     return {
-        "status": "running",
+        "status":      "running",
         "environment": settings.ENVIRONMENT,
     }
 
@@ -182,6 +197,6 @@ def health_check():
 @app.get("/health")
 def readiness_check():
     return {
-        "database": "healthy" if check_db_health() else "unhealthy",
+        "database":    "healthy" if check_db_health() else "unhealthy",
         "environment": settings.ENVIRONMENT,
     }

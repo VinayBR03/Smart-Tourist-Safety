@@ -3,7 +3,6 @@ from typing import Optional, Dict, Any, Union
 
 from models.crowd.isolation_forest_model import IsolationForestCrowdModel
 from models.crowd.online_model import OnlineCrowdModel
-
 from config import CROWD_ARTIFACT
 
 
@@ -35,13 +34,13 @@ class CrowdModelSelector:
         isolation = self._safe_load(
             IsolationForestCrowdModel(),
             CROWD_ARTIFACT.small_model_filename,
-            "crowd_isolation_meta.json",
+            CROWD_ARTIFACT.small_metadata_filename,
         )
 
         online = self._safe_load(
             OnlineCrowdModel(),
             CROWD_ARTIFACT.large_model_filename,
-            "crowd_online_meta.json",
+            CROWD_ARTIFACT.large_metadata_filename,
         )
 
         if isolation is None and online is None:
@@ -81,10 +80,11 @@ class CrowdModelSelector:
     # =========================================================
 
     def _compute_selection_score(self, metadata: Dict[str, Any]) -> float:
-        auc = float(metadata.get("validation_auc", 0.0))
-        f1 = float(metadata.get("validation_f1", 0.0))
-        drift = float(metadata.get("drift_score", 0.0))
-        dataset_size = int(metadata.get("dataset_size", 0))
+
+        auc          = float(metadata.get("validation_auc",  0.0))
+        f1           = float(metadata.get("validation_f1",   0.0))
+        drift        = float(metadata.get("drift_score",     0.0))
+        dataset_size = int(metadata.get("dataset_size",       0))
 
         drift_penalty = 1.0 - drift
 
@@ -120,13 +120,13 @@ class CrowdModelSelector:
 
     def _safe_load(
         self,
-        model: CrowdModelType,
+        model:      CrowdModelType,
         model_file: str,
-        meta_file: str,
+        meta_file:  str,
     ) -> Optional[CrowdModelType]:
 
         model_path = self.model_dir / model_file
-        meta_path = self.model_dir / meta_file
+        meta_path  = self.model_dir / meta_file
 
         if not model_path.exists():
             return None

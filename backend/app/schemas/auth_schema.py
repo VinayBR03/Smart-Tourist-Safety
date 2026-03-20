@@ -212,7 +212,15 @@ class AuthenticatedUserResponse(BaseModel):
     role: UserRole
     is_active: bool
     is_verified: bool
-    last_login: Optional[datetime]
+
+    # Profile fields needed by frontend (greeting, display name, etc.)
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    preferred_language: Optional[str] = None
+
+    last_login: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
 
     model_config = ConfigDict(
         from_attributes=True,

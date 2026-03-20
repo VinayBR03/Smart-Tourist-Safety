@@ -96,29 +96,55 @@ def _has_recent_health_incident(db: Session, *, tourist_id: int) -> bool:
 
 
 # =========================================================
+# Previous Health Score Lookup
+#
+# Fetches the tourist's most recent anomaly score so the
+# LSTM model gets real temporal context rather than 0.0.
+# Returns 0.0 if no prior telemetry exists (first reading).
+# =========================================================
+
+def _get_previous_health_score(db: Session, *, tourist_id: int) -> float:
+
+    stmt = (
+        select(HealthTelemetry.is_alert)
+        .where(HealthTelemetry.tourist_id == tourist_id)
+        .order_by(HealthTelemetry.recorded_at.desc())
+        .limit(1)
+    )
+
+    result = db.execute(stmt).scalar_one_or_none()
+
+    if result is None:
+        return 0.0
+
+    # is_alert is boolean — map to float score
+    return 1.0 if result else 0.0
+
+
+# =========================================================
 # Evaluate Health Metrics
 # =========================================================
 
 def evaluate_health_metrics(
     db: Session,
     *,
-    tourist_id: int,
-    heart_rate: Optional[float],
-    spo2: Optional[float],
-    body_temperature: Optional[float],
+    tourist_id:        int,
+    heart_rate:        Optional[float],
+    spo2:              Optional[float],
+    body_temperature:  Optional[float],
     movement_variance: Optional[float] = None,
-    fall_detected: bool = False,
-    zone_id: Optional[int] = None,
-    latitude: Optional[float] = None,
-    longitude: Optional[float] = None,
+    fall_detected:     bool            = False,
+    zone_id:           Optional[int]   = None,
+    latitude:          Optional[float] = None,
+    longitude:         Optional[float] = None,
 ) -> None:
 
     now = datetime.now(timezone.utc)
 
     # Sanitize physiological inputs
-    heart_rate = _sanitize(heart_rate, 20, 300)
-    spo2 = _sanitize(spo2, 50, 100)
-    body_temperature = _sanitize(body_temperature, 30, 45)
+    heart_rate       = _sanitize(heart_rate,       20,  300)
+    spo2             = _sanitize(spo2,             50,  100)
+    body_temperature = _sanitize(body_temperature, 30,   45)
 
     # Persist telemetry
     db.add(
@@ -140,35 +166,35 @@ def evaluate_health_metrics(
     # -------------------------------------------------
 
     rule_triggered = False
-    reason = None
+    reason         = None
 
-    hr_high = float(getattr(settings, "HEART_RATE_HIGH", 140))
-    hr_low = float(getattr(settings, "HEART_RATE_LOW", 40))
-    spo2_low = float(getattr(settings, "SPO2_LOW", 90))
-    temp_high = float(getattr(settings, "TEMP_HIGH", 39))
+    hr_high      = float(getattr(settings, "HEART_RATE_HIGH",     140))
+    hr_low       = float(getattr(settings, "HEART_RATE_LOW",       40))
+    spo2_low     = float(getattr(settings, "SPO2_LOW",             90))
+    temp_high    = float(getattr(settings, "TEMP_HIGH",            39))
     ml_threshold = float(getattr(settings, "HEALTH_ML_THRESHOLD", 0.8))
 
     if fall_detected:
         rule_triggered = True
-        reason = "Fall detected"
+        reason         = "Fall detected"
 
     elif heart_rate is not None:
         if heart_rate > hr_high:
             rule_triggered = True
-            reason = "Critical high heart rate"
+            reason         = "Critical high heart rate"
         elif heart_rate < hr_low:
             rule_triggered = True
-            reason = "Critical low heart rate"
+            reason         = "Critical low heart rate"
 
     if not rule_triggered and spo2 is not None:
         if spo2 < spo2_low:
             rule_triggered = True
-            reason = "Low oxygen level"
+            reason         = "Low oxygen level"
 
     if not rule_triggered and body_temperature is not None:
         if body_temperature > temp_high:
             rule_triggered = True
-            reason = "High body body_temperature"
+            reason         = "High body temperature"
 
     # -------------------------------------------------
     # ML CHECK
@@ -176,20 +202,20 @@ def evaluate_health_metrics(
 
     ml_triggered = False
 
+    # Fetch real previous anomaly score — gives LSTM temporal context
+    previous_health_score = _get_previous_health_score(db, tourist_id=tourist_id)
+
     ml_features: Dict[str, float] = {
-        "heart_rate": float(heart_rate or 0.0),
-        "spo2": float(spo2 or 0.0),
-        "body_temperature": float(body_temperature or 0.0),
-        "movement_variance": float(movement_variance or 0.0),
-        "previous_health_score": 0.0,
+        "heart_rate":            float(heart_rate       or 0.0),
+        "spo2":                  float(spo2             or 0.0),
+        "temperature":           float(body_temperature or 0.0),
+        "movement_variance":     float(movement_variance or 0.0),
+        "previous_health_score": previous_health_score,
     }
 
-    ml_result = internal_ml_service.predict_health_risk(
-        features=ml_features
-    )
+    ml_result = internal_ml_service.predict_health_risk(features=ml_features)
 
     if ml_result:
-
         try:
             anomaly_score = float(ml_result.get("anomaly_score", 0.0))
         except (TypeError, ValueError):
@@ -233,13 +259,13 @@ def evaluate_health_metrics(
 # =========================================================
 
 def _trigger_auto_incident(
-    db: Session,
+    db:         Session,
     *,
     tourist_id: int,
-    reason: str,
-    zone_id: Optional[int],
-    latitude: Optional[float],
-    longitude: Optional[float],
+    reason:     str,
+    zone_id:    Optional[int],
+    latitude:   Optional[float],
+    longitude:  Optional[float],
 ) -> None:
 
     try:
@@ -265,7 +291,7 @@ def _trigger_auto_incident(
         related_entity_id=incident.id,
         context={
             "tourist_id": tourist_id,
-            "reason": reason,
+            "reason":     reason,
         },
     )
 
@@ -273,9 +299,9 @@ def _trigger_auto_incident(
         db=db,
         topic="health.alert",
         payload={
-            "tourist_id": tourist_id,
+            "tourist_id":  tourist_id,
             "incident_id": incident.id,
-            "reason": reason,
+            "reason":      reason,
         },
     )
 
@@ -287,7 +313,7 @@ def _trigger_auto_incident(
         entity_id=incident.id,
         new_value={
             "auto_triggered": True,
-            "reason": reason,
+            "reason":         reason,
         },
     )
 

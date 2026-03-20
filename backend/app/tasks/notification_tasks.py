@@ -1,13 +1,13 @@
 from datetime import datetime, timezone
-from typing import List
 
 from celery import shared_task
-from sqlalchemy import select
+from sqlalchemy import select, or_
 
 from app.tasks.base import BaseTask
 from app.models.notification import Notification
 from app.core.enums import NotificationStatus
 from app.core.database import SessionLocal
+from app.services.notification_service import dispatch_notification_by_id
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -26,11 +26,10 @@ def process_notifications_task(self):
     Enterprise Notification Processing Task.
 
     Guarantees:
-    - Cluster-safe execution
-    - Status-driven state transitions
-    - Idempotent
-    - Transaction-safe
-    - Retry-safe
+    - Cluster-safe execution via Redis lock
+    - Respects exponential backoff (next_retry_at filter)
+    - skip_locked prevents double-processing across workers
+    - Delegates all dispatch/retry logic to notification_service
     """
 
     with self.redis_lock("process_notifications", timeout=120) as acquired:
@@ -43,103 +42,69 @@ def process_notifications_task(self):
             return
 
         for notification_id in notification_ids:
-            _send_and_update(notification_id)
+            _dispatch_one(notification_id)
 
 
 # ---------------------------------------------------------
-# Phase 1: Fetch Pending Notifications
+# Phase 1: Fetch Eligible Notifications
 # ---------------------------------------------------------
 
-def _fetch_batch(db) -> List[int]:
+def _fetch_batch(db) -> list[int]:
     """
-    Fetch notifications eligible for processing.
+    Fetch notifications eligible for dispatch right now.
+
+    Filters:
+    - PENDING status only
+    - Under retry limit
+    - next_retry_at is NULL (first attempt) OR has elapsed
+      (respects the exponential backoff window set by
+       dispatch_notification_by_id on failure)
     """
+
+    now = datetime.now(timezone.utc)
 
     stmt = (
         select(Notification)
-        .where(Notification.status == NotificationStatus.PENDING)
-        .where(Notification.retry_count < MAX_RETRIES)
+        .where(
+            Notification.status == NotificationStatus.PENDING,
+            Notification.retry_count < MAX_RETRIES,
+            or_(
+                Notification.next_retry_at.is_(None),
+                Notification.next_retry_at <= now,
+            ),
+        )
         .order_by(Notification.created_at)
         .limit(BATCH_SIZE)
         .with_for_update(skip_locked=True)
     )
 
     records = db.execute(stmt).scalars().all()
-
-    if not records:
-        return []
-
-    return [record.id for record in records]
+    return [r.id for r in records]
 
 
 # ---------------------------------------------------------
-# Phase 2: Dispatch & Update Status
+# Phase 2: Dispatch via service layer
 # ---------------------------------------------------------
 
-def _send_and_update(notification_id: int) -> None:
+def _dispatch_one(notification_id: int) -> None:
     """
-    Send notification and update lifecycle status.
+    Delegates all channel routing and retry logic to
+    notification_service.dispatch_notification_by_id —
+    no channel or retry logic duplicated here.
     """
 
     db = SessionLocal()
 
     try:
-        notification = db.get(Notification, notification_id)
-
-        if (
-            not notification
-            or notification.status != NotificationStatus.PENDING
-        ):
-            return
-
-        try:
-            _dispatch(notification)
-
-            notification.status = NotificationStatus.SENT
-            notification.sent_at = datetime.now(timezone.utc)
-            notification.last_error = None
-
-        except Exception as e:
-            notification.retry_count += 1
-            notification.last_error = str(e)
-
-            if notification.retry_count >= MAX_RETRIES:
-                notification.status = NotificationStatus.FAILED
-                logger.error(
-                    "Notification exceeded retry limit id=%s",
-                    notification.id,
-                )
-            else:
-                notification.status = NotificationStatus.FAILED
-
+        dispatch_notification_by_id(db=db, notification_id=notification_id)
         db.commit()
 
     except Exception:
         db.rollback()
         logger.exception(
-            "Notification processing failed id=%s",
+            "Notification dispatch failed id=%s",
             notification_id,
         )
 
     finally:
         db.close()
-
-
-# ---------------------------------------------------------
-# Dispatch Stub
-# ---------------------------------------------------------
-
-def _dispatch(notification: Notification):
-    """
-    Dispatch notification via provider.
-    (Email / SMS / Push integration goes here.)
-    """
-
-    logger.info(
-        "Sending notification id=%s channel=%s",
-        notification.id,
-        notification.channel,
-    )
-
-    # TODO:
-    # integrate email / SMS / push provider here

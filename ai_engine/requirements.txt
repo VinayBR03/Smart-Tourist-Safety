@@ -18,6 +18,8 @@ xgboost==2.0.*
 # Deep Learning (CPU)
 # ==========================================================
 
+# CPU-only build — significantly smaller than default torch
+# which includes CUDA (~2GB vs ~700MB)
 torch==2.2.*
 
 # ==========================================================
@@ -32,6 +34,7 @@ river==0.21.*
 
 fastapi==0.111.*
 uvicorn[standard]==0.30.*
+gunicorn==21.2.*
 requests==2.32.*
 
 # ==========================================================
@@ -40,6 +43,7 @@ requests==2.32.*
 
 pydantic==2.7.*
 python-dateutil==2.9.*
+python-dotenv==1.2.*
 
 # ==========================================================
 # Logging
@@ -48,7 +52,7 @@ python-dateutil==2.9.*
 loguru==0.7.*
 
 # ==========================================================
-# Optional Performance Improvements
+# Performance
 # ==========================================================
 
 orjson==3.10.*

@@ -40,7 +40,7 @@ MAX_FIRMWARE_LENGTH = 64
 
 
 # =========================================================
-# Status Transition Matrix (Enum-based)
+# Status Transition Matrix
 # =========================================================
 
 ALLOWED_TRANSITIONS = {
@@ -85,6 +85,43 @@ def _hash_api_key(raw_key: str) -> str:
     return hashlib.sha256(raw_key.encode()).hexdigest()
 
 
+def _get_active_assignment(
+    db: Session,
+    *,
+    device_id: Optional[str] = None,
+    tourist_id: Optional[int] = None,
+    lock: bool = False,
+) -> Optional[DeviceAssignment]:
+    """
+    Fetch the currently active assignment for a device OR tourist.
+    Pass device_id to find who has this device.
+    Pass tourist_id to find what device this tourist has.
+    """
+    stmt = (
+        select(DeviceAssignment)
+        .where(DeviceAssignment.unassigned_at.is_(None))
+    )
+
+    if device_id is not None:
+        stmt = stmt.where(DeviceAssignment.device_id == device_id)
+
+    if tourist_id is not None:
+        stmt = stmt.where(DeviceAssignment.tourist_id == tourist_id)
+
+    if lock:
+        stmt = stmt.with_for_update()
+
+    return db.execute(stmt).scalar_one_or_none()
+
+
+def _close_assignment(
+    db: Session,
+    assignment: DeviceAssignment,
+) -> None:
+    """Soft-close an assignment by setting unassigned_at."""
+    assignment.unassigned_at = datetime.now(timezone.utc)
+
+
 # =========================================================
 # Core Retrieval
 # =========================================================
@@ -114,18 +151,12 @@ def get_device_by_device_id(
     return device
 
 
-def get_device(
-    db: Session,
-    *,
-    device_id: str,
-) -> IoTDevice:
+def get_device(db: Session, *, device_id: str) -> IoTDevice:
     return get_device_by_device_id(db, device_id=device_id)
 
 
 def list_devices(db: Session) -> List[IoTDevice]:
-    stmt = select(IoTDevice).where(
-        IoTDevice.deleted_at.is_(None),
-    )
+    stmt = select(IoTDevice).where(IoTDevice.deleted_at.is_(None))
     return db.execute(stmt).scalars().all()
 
 
@@ -133,11 +164,7 @@ def list_devices(db: Session) -> List[IoTDevice]:
 # Registration
 # =========================================================
 
-def register_device(
-    db: Session,
-    *,
-    payload,
-):
+def register_device(db: Session, *, payload):
 
     device_id = _validate_device_id(payload.device_id)
 
@@ -181,43 +208,42 @@ def register_device(
     logger.info("Device registered", extra={"device_id": device_id})
 
     return {
-        "device_id": device_id,
+        "device_id":   device_id,
         "device_type": payload.device_type,
-        "api_key": raw_key,
+        "api_key":     raw_key,
     }
 
 
 # =========================================================
-# Assignment (Uses DeviceAssignment table correctly)
+# Assign Device to Tourist (first-time pairing)
+#
+# Flow:
+#   Tourist scans QR code / enters device_id from Bluetooth
+#   → app calls POST /devices/{device_id}/assign
+#   → this function creates the DeviceAssignment row
+#
+# Raises ConflictError if device is already assigned.
+# For replacing an existing device use reassign_tourist_device().
 # =========================================================
 
 def assign_device_to_tourist(
-    db: Session,
+    db:         Session,
     *,
-    device_id: str,
+    device_id:  str,
     tourist_id: int,
-):
+) -> DeviceAssignment:
 
-    device = get_device_by_device_id(
-        db,
-        device_id=device_id,
-        lock=True,
-    )
+    device = get_device_by_device_id(db, device_id=device_id, lock=True)
 
     if device.status == DeviceStatus.DECOMMISSIONED:
         raise ValidationError("Cannot assign decommissioned device")
 
-    existing = (
-        db.query(DeviceAssignment)
-        .filter(
-            DeviceAssignment.device_id == device_id,
-            DeviceAssignment.unassigned_at.is_(None),
-        )
-        .first()
-    )
+    if device.status == DeviceStatus.SUSPENDED:
+        raise ValidationError("Cannot assign suspended device")
 
+    existing = _get_active_assignment(db, device_id=device_id, lock=True)
     if existing:
-        raise ConflictError("Device already assigned")
+        raise ConflictError("Device already assigned to another tourist")
 
     assignment = DeviceAssignment(
         device_id=device_id,
@@ -227,13 +253,19 @@ def assign_device_to_tourist(
     db.add(assignment)
     db.flush()
 
+    create_audit_log(
+        db=db,
+        user_id=tourist_id,
+        action=AuditAction.ASSIGN_DEVICE,
+        entity_type=EntityType.DEVICE,
+        entity_id=device.id,
+        new_value={"device_id": device_id, "tourist_id": tourist_id},
+    )
+
     create_outbox_event(
         db=db,
         topic="device.assigned",
-        payload={
-            "device_id": device_id,
-            "tourist_id": tourist_id,
-        },
+        payload={"device_id": device_id, "tourist_id": tourist_id},
     )
 
     logger.info(
@@ -241,41 +273,245 @@ def assign_device_to_tourist(
         extra={"device_id": device_id, "tourist_id": tourist_id},
     )
 
+    return assignment
+
+
+# =========================================================
+# Reassign Tourist's Device (tourist gets a new wristband)
+#
+# Flow:
+#   Tourist exchanges old wristband for a new one.
+#   Old assignment is closed, new assignment is created
+#   atomically — tourist is never left without a device.
+#
+# Use case:
+#   - Wristband battery dead, swapped at help desk
+#   - Tourist bought a better wristband model
+#   - Wristband damaged/lost, issued a replacement
+# =========================================================
+
+def reassign_tourist_device(
+    db:             Session,
+    *,
+    tourist_id:     int,
+    new_device_id:  str,
+    performed_by:   Optional[int] = None,
+) -> DeviceAssignment:
+
+    new_device = get_device_by_device_id(db, device_id=new_device_id, lock=True)
+
+    if new_device.status == DeviceStatus.DECOMMISSIONED:
+        raise ValidationError("Cannot assign decommissioned device")
+
+    if new_device.status == DeviceStatus.SUSPENDED:
+        raise ValidationError("Cannot assign suspended device")
+
+    # Check new device isn't already taken by someone else
+    new_device_assignment = _get_active_assignment(
+        db, device_id=new_device_id, lock=True
+    )
+    if new_device_assignment and new_device_assignment.tourist_id != tourist_id:
+        raise ConflictError("New device is already assigned to another tourist")
+
+    # Close old assignment if tourist has one
+    old_assignment = _get_active_assignment(db, tourist_id=tourist_id, lock=True)
+    old_device_id  = None
+
+    if old_assignment:
+        if old_assignment.device_id == new_device_id:
+            # Already on this device — nothing to do
+            return old_assignment
+
+        old_device_id = old_assignment.device_id
+        _close_assignment(db, old_assignment)
+
+        create_outbox_event(
+            db=db,
+            topic="device.unassigned",
+            payload={
+                "device_id":  old_device_id,
+                "tourist_id": tourist_id,
+                "reason":     "device_exchange",
+            },
+        )
+
+    # Close the new device's assignment if it existed (e.g. self-assignment cleanup)
+    if new_device_assignment and new_device_assignment.tourist_id == tourist_id:
+        _close_assignment(db, new_device_assignment)
+
+    # Create new assignment
+    assignment = DeviceAssignment(
+        device_id=new_device_id,
+        tourist_id=tourist_id,
+    )
+
+    db.add(assignment)
+    db.flush()
+
+    create_audit_log(
+        db=db,
+        user_id=performed_by or tourist_id,
+        action=AuditAction.ASSIGN_DEVICE,
+        entity_type=EntityType.DEVICE,
+        entity_id=new_device.id,
+        old_value={"device_id": old_device_id},
+        new_value={"device_id": new_device_id, "tourist_id": tourist_id},
+    )
+
+    create_outbox_event(
+        db=db,
+        topic="device.assigned",
+        payload={
+            "device_id":     new_device_id,
+            "tourist_id":    tourist_id,
+            "old_device_id": old_device_id,
+        },
+    )
+
+    logger.info(
+        "Tourist device reassigned",
+        extra={
+            "tourist_id":    tourist_id,
+            "old_device_id": old_device_id,
+            "new_device_id": new_device_id,
+        },
+    )
+
+    return assignment
+
+
+# =========================================================
+# Transfer Device Between Tourists (wristband returned + reissued)
+#
+# Flow:
+#   Tourist A returns wristband at help desk.
+#   Staff immediately issues it to Tourist B.
+#   Both assignment changes happen atomically.
+#
+# Use case:
+#   - Wristband rental/return at event entry
+#   - Lost and found — reassigning recovered device
+# =========================================================
+
+def transfer_device(
+    db:              Session,
+    *,
+    device_id:       str,
+    from_tourist_id: Optional[int],
+    to_tourist_id:   int,
+    performed_by:    Optional[int] = None,
+) -> DeviceAssignment:
+
+    device = get_device_by_device_id(db, device_id=device_id, lock=True)
+
+    if device.status == DeviceStatus.DECOMMISSIONED:
+        raise ValidationError("Cannot transfer decommissioned device")
+
+    # Close current assignment
+    current = _get_active_assignment(db, device_id=device_id, lock=True)
+
+    if current:
+        if from_tourist_id and current.tourist_id != from_tourist_id:
+            raise ValidationError(
+                "Device is not assigned to the specified tourist"
+            )
+        _close_assignment(db, current)
+
+        create_outbox_event(
+            db=db,
+            topic="device.unassigned",
+            payload={
+                "device_id":  device_id,
+                "tourist_id": current.tourist_id,
+                "reason":     "transfer",
+            },
+        )
+
+    # Close any existing device the receiving tourist has
+    recipient_current = _get_active_assignment(
+        db, tourist_id=to_tourist_id, lock=True
+    )
+    if recipient_current:
+        _close_assignment(db, recipient_current)
+        create_outbox_event(
+            db=db,
+            topic="device.unassigned",
+            payload={
+                "device_id":  recipient_current.device_id,
+                "tourist_id": to_tourist_id,
+                "reason":     "replaced_by_transfer",
+            },
+        )
+
+    # Assign to new tourist
+    assignment = DeviceAssignment(
+        device_id=device_id,
+        tourist_id=to_tourist_id,
+    )
+
+    db.add(assignment)
+    db.flush()
+
+    create_audit_log(
+        db=db,
+        user_id=performed_by,
+        action=AuditAction.ASSIGN_DEVICE,
+        entity_type=EntityType.DEVICE,
+        entity_id=device.id,
+        old_value={"tourist_id": from_tourist_id},
+        new_value={"tourist_id": to_tourist_id},
+    )
+
+    create_outbox_event(
+        db=db,
+        topic="device.transferred",
+        payload={
+            "device_id":       device_id,
+            "from_tourist_id": from_tourist_id,
+            "to_tourist_id":   to_tourist_id,
+        },
+    )
+
+    logger.info(
+        "Device transferred",
+        extra={
+            "device_id":       device_id,
+            "from_tourist_id": from_tourist_id,
+            "to_tourist_id":   to_tourist_id,
+        },
+    )
+
+    return assignment
+
+
+# =========================================================
+# Unassign Device (tourist returns wristband, no replacement)
+# =========================================================
 
 def unassign_device(
-    db: Session,
+    db:        Session,
     *,
     device_id: str,
-):
+) -> None:
 
-    assignment = (
-        db.query(DeviceAssignment)
-        .filter(
-            DeviceAssignment.device_id == device_id,
-            DeviceAssignment.unassigned_at.is_(None),
-        )
-        .with_for_update()
-        .first()
-    )
+    assignment = _get_active_assignment(db, device_id=device_id, lock=True)
 
     if not assignment:
         raise ValidationError("Device not assigned")
 
-    assignment.unassigned_at = datetime.now(timezone.utc)
+    tourist_id = assignment.tourist_id
+    _close_assignment(db, assignment)
 
     create_outbox_event(
         db=db,
         topic="device.unassigned",
         payload={
-            "device_id": device_id,
-            "tourist_id": assignment.tourist_id,
+            "device_id":  device_id,
+            "tourist_id": tourist_id,
         },
     )
 
-    logger.info(
-        "Device unassigned",
-        extra={"device_id": device_id},
-    )
+    logger.info("Device unassigned", extra={"device_id": device_id})
 
 
 # =========================================================
@@ -285,17 +521,13 @@ def unassign_device(
 def update_heartbeat(
     db: Session,
     *,
-    device_id: str,
+    device_id:          str,
     battery_percentage: Optional[float],
-    battery_voltage: Optional[float],
-    firmware_version: Optional[str],
+    battery_voltage:    Optional[float],
+    firmware_version:   Optional[str],
 ) -> IoTDevice:
 
-    device = get_device_by_device_id(
-        db,
-        device_id=device_id,
-        lock=True,
-    )
+    device = get_device_by_device_id(db, device_id=device_id, lock=True)
 
     rate_limiter.enforce(
         prefix="device_heartbeat",
@@ -306,7 +538,7 @@ def update_heartbeat(
 
     now = datetime.now(timezone.utc)
 
-    previous_status = device.status
+    previous_status  = device.status
     previous_battery = device.battery_percentage
 
     device.last_seen = now
@@ -357,7 +589,7 @@ def update_heartbeat(
             db=db,
             topic="device.status_updated",
             payload={
-                "device_id": device.device_id,
+                "device_id":  device.device_id,
                 "old_status": previous_status.name,
                 "new_status": DeviceStatus.ACTIVE.name,
             },
@@ -367,7 +599,7 @@ def update_heartbeat(
         db=db,
         topic="device.heartbeat",
         payload={
-            "device_id": device.device_id,
+            "device_id":          device.device_id,
             "battery_percentage": battery_percentage,
         },
     )
@@ -387,9 +619,9 @@ def update_heartbeat(
 def _handle_low_battery(
     db: Session,
     *,
-    device: IoTDevice,
+    device:           IoTDevice,
     previous_battery: Optional[float],
-    current_battery: float,
+    current_battery:  float,
 ) -> None:
 
     threshold = settings.LOW_BATTERY_THRESHOLD
@@ -425,7 +657,7 @@ def _handle_low_battery(
             db=db,
             topic="device.low_battery",
             payload={
-                "device_id": device.device_id,
+                "device_id":          device.device_id,
                 "battery_percentage": current_battery,
             },
         )
@@ -436,21 +668,17 @@ def _handle_low_battery(
 # =========================================================
 
 def update_device_status(
-    db: Session,
+    db:           Session,
     *,
-    device_id: str,
-    status: DeviceStatus,
+    device_id:    str,
+    status:       DeviceStatus,
     performed_by: Optional[int],
 ) -> IoTDevice:
 
     if not isinstance(status, DeviceStatus):
         raise ValidationError("Invalid device status")
 
-    device = get_device_by_device_id(
-        db,
-        device_id=device_id,
-        lock=True,
-    )
+    device = get_device_by_device_id(db, device_id=device_id, lock=True)
 
     if device.status == status:
         return device
@@ -460,7 +688,7 @@ def update_device_status(
     if status not in allowed:
         raise ConflictError("Invalid device status transition")
 
-    old_status = device.status
+    old_status    = device.status
     device.status = status
 
     create_audit_log(
@@ -477,7 +705,7 @@ def update_device_status(
         db=db,
         topic="device.status_updated",
         payload={
-            "device_id": device.device_id,
+            "device_id":  device.device_id,
             "old_status": old_status.name,
             "new_status": status.name,
         },
@@ -492,7 +720,7 @@ def update_device_status(
 
 
 # =========================================================
-# Serialization
+# Mark Offline (heartbeat timeout)
 # =========================================================
 
 def mark_device_offline(db: Session, *, device: IoTDevice) -> IoTDevice:
@@ -504,7 +732,7 @@ def mark_device_offline(db: Session, *, device: IoTDevice) -> IoTDevice:
     if device.status != DeviceStatus.ACTIVE:
         return device
 
-    old_status = device.status
+    old_status    = device.status
     device.status = DeviceStatus.INACTIVE
 
     create_audit_log(
@@ -521,7 +749,7 @@ def mark_device_offline(db: Session, *, device: IoTDevice) -> IoTDevice:
         db=db,
         topic="device.status_updated",
         payload={
-            "device_id": device.device_id,
+            "device_id":  device.device_id,
             "old_status": old_status.name,
             "new_status": DeviceStatus.INACTIVE.name,
         },

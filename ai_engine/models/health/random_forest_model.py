@@ -24,16 +24,18 @@ class RandomForestHealthModel(SupervisedModel[RandomForestClassifier]):
     def __init__(self) -> None:
         super().__init__(model_name="health_random_forest")
 
+        # Strictly physiological features — matches LSTMHealthModel
+        # and HealthPredictor.REQUIRED_FEATURES exactly.
         self.feature_order: List[str] = [
             "heart_rate",
             "spo2",
             "temperature",
             "movement_variance",
-            "battery_level",
+            "previous_health_score",
         ]
 
         self.metadata = {
-            "model_type": "random_forest",
+            "model_type":    "random_forest",
             "model_version": self.MODEL_VERSION,
             "feature_order": self.feature_order,
         }
@@ -102,9 +104,9 @@ class RandomForestHealthModel(SupervisedModel[RandomForestClassifier]):
 
         return {
             "anomaly_score": round(probability, 6),
-            "is_anomaly": is_anomaly,
+            "is_anomaly":    is_anomaly,
             "model_version": self.metadata.get("model_version", self.MODEL_VERSION),
-            "model_type": "random_forest",
+            "model_type":    "random_forest",
         }
 
     # =========================================================

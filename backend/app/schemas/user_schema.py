@@ -132,6 +132,7 @@ class UserResponse(BaseModel):
 class UserAdminResponse(UserResponse):
     token_version: int
     last_login: Optional[datetime]
+    last_activity: Optional[datetime]
     password_changed_at: Optional[datetime]
 
     is_pending_deletion: bool

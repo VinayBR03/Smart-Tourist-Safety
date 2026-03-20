@@ -139,6 +139,17 @@ class Settings(BaseSettings):
     AWS_S3_BUCKET: Optional[str] = None
 
     # =========================================================
+    # MEDIA UPLOAD LIMITS
+    # =========================================================
+
+    MAX_PROFILE_PHOTO_BYTES: int = 5 * 1024 * 1024        # 5 MB
+    MAX_INCIDENT_MEDIA_BYTES: int = 50 * 1024 * 1024      # 50 MB
+
+    MAX_MEDIA_PER_INCIDENT: int = 20
+    MEDIA_UPLOAD_RATE_LIMIT: int = 20
+    MEDIA_UPLOAD_RATE_WINDOW_SECONDS: int = 60
+
+    # =========================================================
     # PUSH
     # =========================================================
 
@@ -285,7 +296,7 @@ class Settings(BaseSettings):
     # =========================================================
 
     model_config = {
-        "env_file": ".env",
+        "env_file": ".env.local",
         "case_sensitive": True,
     }
 

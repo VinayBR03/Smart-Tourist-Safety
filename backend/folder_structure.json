@@ -1,79 +1,159 @@
 {
-    "tests": [
+    "app": [
         {
-            "api": [
-                "test_auth_routes.py",
-                "test_device_routes.py",
-                "test_incident_routes.py",
-                "test_location_routes.py",
-                "test_media_routes.py",
-                "test_role_enforcement_api.py",
-                "test_tourist_routes.py",
-                "test_zone_routes.py"
+            "core": [
+                "celery_app.py",
+                "config.py",
+                "database.py",
+                "dependencies.py",
+                "enums.py",
+                "exceptions.py",
+                "idempotency.py",
+                "kafka.py",
+                "logging_config.py",
+                "middleware.py",
+                "rate_limiter.py",
+                "redis.py",
+                "s3_client.py",
+                "security.py",
+                "transaction_manager.py",
+                "websocket_manager.py"
             ]
         },
-        "conftest.py",
+        "main.py",
         {
-            "e2e": [
-                "test_cleanup_flow.py",
-                "test_device_assignment_flow.py",
-                "test_full_incident_flow.py"
+            "models": [
+                "audit_log.py",
+                "base.py",
+                "device_assignment.py",
+                "event_outbox.py",
+                "health_telemetry.py",
+                "incident.py",
+                "incident_assignment.py",
+                "incident_status_history.py",
+                "iot_device.py",
+                "location.py",
+                "location_event.py",
+                "media.py",
+                "notification.py",
+                "refresh_token.py",
+                "user.py",
+                "zone.py",
+                "zone_risk_history.py",
+                "zone_status.py"
             ]
         },
         {
-            "infra": [
-                "test_celery_config.py",
-                "test_kafka_consumer.py",
-                "test_kafka_publish.py",
-                "test_outbox_pattern.py",
-                "test_redis_lock.py",
-                "test_redis_pubsub.py",
-                "test_s3_client.py"
+            "realtime": [
+                "redis_listener.py"
             ]
         },
         {
-            "integration": [
-                "test_auth_service.py",
-                "test_cleanup_service.py",
-                "test_device_assignment_service.py",
-                "test_device_constraints.py",
-                "test_incident_service.py",
-                "test_incident_state_machine.py",
-                "test_location_service.py",
-                "test_notification_service.py",
-                "test_outbox_events.py",
-                "test_zone_service.py"
+            "routers": [
+                "analytics.py",
+                "auth.py",
+                "device.py",
+                "health.py",
+                "incident.py",
+                "iot.py",
+                "location.py",
+                "media.py",
+                "notification.py",
+                "tourist.py",
+                "user_admin.py",
+                "websocket.py",
+                "zone.py"
+            ]
+        },
+        {
+            "schemas": [
+                "analytics_schema.py",
+                "audit_schema.py",
+                "auth_schema.py",
+                "device_schema.py",
+                "health_schema.py",
+                "incident_assignment_schema.py",
+                "incident_schema.py",
+                "incident_status_history_schema.py",
+                "iot_schema.py",
+                "location_event_schema.py",
+                "location_schema.py",
+                "media_schema.py",
+                "notification_schema.py",
+                "user_schema.py",
+                "zone_schema.py"
+            ]
+        },
+        {
+            "services": [
+                "analytics_service.py",
+                "assignment_service.py",
+                "audit_service.py",
+                "auth_service.py",
+                "background_tasks_service.py",
+                "cleanup_service.py",
+                "crowd_monitor_service.py",
+                "dataset_service.py",
+                "device_service.py",
+                "email_service.py",
+                "feature_service.py",
+                "geofence_service.py",
+                "health_monitor_service.py",
+                "incident_service.py",
+                "internal_ml_service.py",
+                "iot_service.py",
+                "location_service.py",
+                "media_service.py",
+                "notification_service.py",
+                "outbox_service.py",
+                "push_service.py",
+                "realtime_service.py",
+                "risk_engine_service.py",
+                "role_permission_service.py",
+                "sms_service.py",
+                "throttle_service.py",
+                "tourist_service.py",
+                "user_service.py",
+                "zone_service.py"
             ]
         },
         {
             "tasks": [
-                "test_analytics_task.py",
-                "test_base_task.py",
-                "test_cleanup_task.py",
-                "test_device_task.py",
-                "test_incident_task.py",
-                "test_notification_task.py",
-                "test_outbox_task.py",
-                "test_zone_task.py"
+                "account_tasks.py",
+                "analytics_tasks.py",
+                "base.py",
+                "cleanup_tasks.py",
+                "device_tasks.py",
+                "incident_tasks.py",
+                "notification_tasks.py",
+                "outbox_tasks.py",
+                "zone_tasks.py"
             ]
         },
         {
-            "unit": [
-                "test_geofence_service.py",
-                "test_health_monitor_service.py",
-                "test_idempotency.py",
-                "test_internal_ml_service.py",
-                "test_rate_limiter.py",
-                "test_risk_engine_service.py",
-                "test_role_permission_service.py",
-                "test_security.py"
+            "templates": [
+                "email_template.py",
+                {
+                    "locales": [
+                        "en.py",
+                        "hi.py",
+                        "kn.py",
+                        "ml.py",
+                        "ta.py",
+                        "te.py"
+                    ]
+                }
             ]
         },
         {
-            "websocket": [
-                "test_ws_auth.py",
-                "test_ws_authority.py",
-                "test_ws_notifications.py"
+            "utils": [
+                "helpers.py",
+                "logger.py"
+            ]
+        },
+        {
+            "workers": [
+                "kafka_consumer.py"
             ]
         }
     ]

@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 
 
 # =========================================================
-# Engine Configuration (Config-Driven, Production Safe)
+# Engine
 # =========================================================
 
 engine = create_engine(
@@ -33,12 +33,10 @@ engine = create_engine(
     echo=settings.DEBUG,
     isolation_level="READ COMMITTED",
 
-    execution_options={"stream_results": True},
-
     connect_args={
         "options": (
             f"-c statement_timeout={settings.DB_STATEMENT_TIMEOUT_MS} "
-            f"-c application_name=smart_tourist_backend"
+            f"-c application_name=crowdguard_backend"
         )
     },
 )
@@ -69,13 +67,7 @@ SessionLocal = sessionmaker(
 # =========================================================
 
 def get_db():
-    """
-    FastAPI dependency for DB session.
-    Ensures safe open/close handling.
-    """
-
     db = SessionLocal()
-
     try:
         yield db
     except Exception:
@@ -86,7 +78,116 @@ def get_db():
 
 
 # =========================================================
-# Health Check Utility
+# TimescaleDB Setup
+#
+# Called once at application startup (from main.py lifespan).
+# Safe to call on every restart — all statements use
+# IF NOT EXISTS / OR REPLACE guards.
+#
+# What it does:
+#   1. Enables the timescaledb extension
+#   2. Converts health_telemetry to a hypertable partitioned
+#      by recorded_at with 1-day chunks
+#   3. Configures columnar compression segmented by tourist_id
+#   4. Adds an automatic compression policy (compress chunks
+#      older than 7 days)
+#   5. Adds a data retention policy (drop chunks older than
+#      settings.TELEMETRY_RETENTION_DAYS, default 365)
+# =========================================================
+
+def setup_timescaledb() -> None:
+    """
+    Idempotent TimescaleDB initialisation for health_telemetry.
+    Safe to run on every application start.
+    """
+
+    if not getattr(settings, "ENABLE_TIMESCALEDB", True):
+        logger.info("TimescaleDB setup skipped (ENABLE_TIMESCALEDB=false)")
+        return
+
+    retention_days: int = getattr(settings, "TELEMETRY_RETENTION_DAYS", 365)
+
+    statements = [
+        # 1. Extension
+        (
+            "TimescaleDB extension",
+            "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;",
+        ),
+
+        # 2. Hypertable
+        # chunk_time_interval = 1 day is appropriate for ~200k rows/day.
+        # Adjust to '1 week' if write rate is lower in non-event periods.
+        (
+            "health_telemetry hypertable",
+            """
+            SELECT create_hypertable(
+                'health_telemetry',
+                'recorded_at',
+                chunk_time_interval  => INTERVAL '1 day',
+                if_not_exists        => TRUE,
+                migrate_data         => TRUE
+            );
+            """,
+        ),
+
+        # 3. Compression settings
+        # segment by tourist_id → each compressed chunk groups one tourist's
+        # data together, making per-tourist queries extremely fast.
+        # orderby recorded_at DESC → most-recent-first queries skip decompression.
+        (
+            "health_telemetry compression settings",
+            """
+            ALTER TABLE health_telemetry SET (
+                timescaledb.compress,
+                timescaledb.compress_segmentby = 'tourist_id',
+                timescaledb.compress_orderby   = 'recorded_at DESC'
+            );
+            """,
+        ),
+
+        # 4. Automatic compression policy (chunks older than 7 days)
+        (
+            "health_telemetry compression policy",
+            """
+            SELECT add_compression_policy(
+                'health_telemetry',
+                INTERVAL '7 days',
+                if_not_exists => TRUE
+            );
+            """,
+        ),
+
+        # 5. Data retention policy
+        (
+            "health_telemetry retention policy",
+            f"""
+            SELECT add_retention_policy(
+                'health_telemetry',
+                INTERVAL '{retention_days} days',
+                if_not_exists => TRUE
+            );
+            """,
+        ),
+    ]
+
+    with engine.begin() as conn:
+        for label, sql in statements:
+            try:
+                conn.execute(text(sql))
+                logger.info("TimescaleDB: %s — OK", label)
+            except Exception as exc:
+                # Log and continue — a partial setup is better than blocking
+                # startup. The most common cause is the extension already
+                # being configured identically (harmless).
+                logger.warning(
+                    "TimescaleDB: %s — skipped (%s)",
+                    label,
+                    exc,
+                )
+
+
+# =========================================================
+# Health Check
 # =========================================================
 
 def check_db_health() -> bool:
@@ -100,12 +201,11 @@ def check_db_health() -> bool:
 
 
 # =========================================================
-# Graceful Shutdown
+# Shutdown
 # =========================================================
 
 def dispose_engine():
     try:
-        logger.info("Disposing database engine")
         engine.dispose()
     except Exception:
         logger.exception("Error disposing database engine")

@@ -91,6 +91,12 @@ class User(Base, TimestampMixin, VersionMixin, SoftDeleteMixin):
         index=True,
     )
 
+    last_activity: Mapped[DateTime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
+
     # =========================================================
     # Relationships
     # =========================================================

@@ -83,37 +83,27 @@ _logging_initialized = False
 
 
 def setup_logging() -> None:
-    global _logging_initialized
-
-    if _logging_initialized:
-        return
 
     handler = logging.StreamHandler(sys.stdout)
 
-    # Determine level
-    if settings.DEBUG:
-        logging_level = logging.DEBUG
-    else:
-        logging_level = logging.INFO
-
-    # Formatter selection
+    # Determine level based on environment
     if settings.ENVIRONMENT == "production":
+        logging_level = logging.INFO
         formatter = JSONFormatter()
     else:
+        logging_level = logging.DEBUG
         formatter = DevFormatter()
 
     handler.setFormatter(formatter)
 
     root_logger = logging.getLogger()
+
+    # Reset handlers (important for tests)
+    root_logger.handlers.clear()
+
     root_logger.setLevel(logging_level)
 
-    # Clear existing handlers safely
-    for h in list(root_logger.handlers):
-        root_logger.removeHandler(h)
-
     root_logger.addHandler(handler)
-
-    _logging_initialized = True
 
 
 # =========================================================

@@ -35,13 +35,13 @@ class HealthModelSelector:
         rf = self._safe_load(
             RandomForestHealthModel(),
             HEALTH_ARTIFACT.small_model_filename,
-            "health_rf_meta.json",
+            HEALTH_ARTIFACT.small_metadata_filename,
         )
 
         lstm = self._safe_load(
             LSTMHealthModel(),
             HEALTH_ARTIFACT.large_model_filename,
-            "health_lstm_meta.json",
+            HEALTH_ARTIFACT.large_metadata_filename,
         )
 
         if rf is None and lstm is None:
@@ -81,24 +81,21 @@ class HealthModelSelector:
     # =========================================================
 
     def _compute_selection_score(self, metadata: Dict[str, Any]) -> float:
-        """
-        Composite health model score.
-        """
 
-        auc = float(metadata.get("validation_auc", 0.0))
-        f1 = float(metadata.get("validation_f1", 0.0))
+        auc         = float(metadata.get("validation_auc",    0.0))
+        f1          = float(metadata.get("validation_f1",     0.0))
         calibration = float(metadata.get("calibration_error", 1.0))
-        drift = float(metadata.get("drift_score", 0.0))
-        dataset_size = int(metadata.get("dataset_size", 0))
+        drift       = float(metadata.get("drift_score",       0.0))
+        dataset_size = int(metadata.get("dataset_size",        0))
 
         calibration_score = 1.0 - calibration
-        drift_penalty = 1.0 - drift
+        drift_penalty     = 1.0 - drift
 
         score = (
-            0.4 * auc +
-            0.3 * f1 +
+            0.40 * auc +
+            0.30 * f1 +
             0.15 * calibration_score +
-            0.1 * drift_penalty +
+            0.10 * drift_penalty +
             0.05 * self._dataset_bonus(dataset_size)
         )
 
@@ -127,13 +124,13 @@ class HealthModelSelector:
 
     def _safe_load(
         self,
-        model: HealthModelType,
+        model:      HealthModelType,
         model_file: str,
-        meta_file: str,
+        meta_file:  str,
     ) -> Optional[HealthModelType]:
 
         model_path = self.model_dir / model_file
-        meta_path = self.model_dir / meta_file
+        meta_path  = self.model_dir / meta_file
 
         if not model_path.exists():
             return None

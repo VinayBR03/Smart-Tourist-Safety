@@ -137,3 +137,47 @@ class S3Client:
                 extra={"key": key, "error": str(e)},
             )
             raise ServiceUnavailableError("S3 unavailable")
+
+    # =========================================================
+# Get Object Metadata
+# =========================================================
+
+@classmethod
+def get_object_metadata(cls, key: str):
+
+    client = cls._get_client()
+
+    try:
+
+        response = client.head_object(
+            Bucket=settings.AWS_S3_BUCKET,
+            Key=key,
+        )
+
+        return {
+            "size": response["ContentLength"],
+            "content_type": response.get("ContentType"),
+        }
+
+    except ClientError as e:
+
+        error_code = e.response.get("Error", {}).get("Code")
+
+        if error_code in ("404", "NoSuchKey"):
+            return None
+
+        logger.exception(
+            "Failed to fetch S3 metadata",
+            extra={"key": key, "error": str(e)},
+        )
+
+        raise ServiceUnavailableError("S3 unavailable")
+
+    except BotoCoreError as e:
+
+        logger.exception(
+            "S3 connection error",
+            extra={"key": key, "error": str(e)},
+        )
+
+        raise ServiceUnavailableError("S3 unavailable")

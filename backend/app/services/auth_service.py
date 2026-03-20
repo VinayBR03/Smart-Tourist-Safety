@@ -136,6 +136,7 @@ def authenticate_user(
     email: str,
     password: str,
     device_info: Optional[str] = None,
+    ip_address: Optional[str] = None,
 ) -> Tuple[str, str]:
 
     email = email.lower().strip()
@@ -186,6 +187,7 @@ def authenticate_user(
             jti=jti,
             token_hash=get_refresh_token_hash(refresh_token),
             device_info=device_info,
+            ip_address=ip_address,
             expires_at=expires_at,
         )
     )
@@ -321,6 +323,8 @@ def refresh_access_token(
             user_id=user.id,
             jti=new_jti,
             token_hash=get_refresh_token_hash(new_refresh),
+            device_info=db_token.device_info,
+            ip_address=db_token.ip_address,
             expires_at=new_exp,
         )
     )

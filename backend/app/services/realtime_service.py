@@ -12,7 +12,7 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 
 MAX_EVENT_PAYLOAD_BYTES = 20_000
-MAX_EVENT_TYPE_LENGTH = 100
+MAX_EVENT_TYPE_LENGTH   = 100
 
 
 # =========================================================
@@ -54,18 +54,18 @@ def _enforce_payload_size(event: Dict[str, Any]) -> None:
 def _wrap_event(
     *,
     event_type: str,
-    data: Dict[str, Any],
+    data:       Dict[str, Any],
 ) -> Dict[str, Any]:
 
     normalized_type = _validate_event(event_type, data)
 
     event = {
-        "type": normalized_type,
-        "timestamp": datetime.now(timezone.utc)
-        .replace(microsecond=0)
-        .isoformat(),
+        "type":           normalized_type,
+        "timestamp":      datetime.now(timezone.utc)
+                              .replace(microsecond=0)
+                              .isoformat(),
         "correlation_id": get_correlation_id(),
-        "data": data,
+        "data":           data,
     }
 
     _enforce_payload_size(event)
@@ -74,13 +74,22 @@ def _wrap_event(
 
 
 # =========================================================
-# Safe Broadcast Helpers
+# Safe Publish Helpers
+#
+# IMPORTANT: Use publish_to_user / publish_to_role (Redis
+# pub/sub), NOT broadcast_to_user / broadcast_to_role.
+#
+# broadcast_* sends only to connections on THIS worker.
+# publish_* sends to Redis so every worker delivers to its
+# locally connected sockets — correct for multi-worker
+# Gunicorn deployments (4 workers = 4 separate processes).
 # =========================================================
 
-async def _safe_broadcast_to_user(
+async def _safe_publish_to_user(
     *,
-    user_id: int,
-    event: Dict[str, Any],
+    user_id:    int,
+    event_type: str,
+    data:       Dict[str, Any],
 ) -> None:
 
     if not _websockets_enabled():
@@ -93,27 +102,29 @@ async def _safe_broadcast_to_user(
         return
 
     try:
-        await websocket_manager.broadcast_to_user(
+        await websocket_manager.publish_to_user(
             user_id=user_id,
-            message=event,
+            event_type=event_type,
+            data=data,
         )
     except Exception as e:
         logger.error(
-            "WebSocket user broadcast failed",
+            "WebSocket user publish failed",
             extra={
                 "extra_data": {
-                    "user_id": user_id,
-                    "error_type": type(e).__name__,
+                    "user_id":       user_id,
+                    "error_type":    type(e).__name__,
                     "correlation_id": get_correlation_id(),
                 }
             },
         )
 
 
-async def _safe_broadcast_to_role(
+async def _safe_publish_to_role(
     *,
-    role: str,
-    event: Dict[str, Any],
+    role:       str,
+    event_type: str,
+    data:       Dict[str, Any],
 ) -> None:
 
     if not _websockets_enabled():
@@ -128,33 +139,37 @@ async def _safe_broadcast_to_role(
         return
 
     try:
-        await websocket_manager.broadcast_to_role(
+        await websocket_manager.publish_to_role(
             role=role,
-            message=event,
+            event_type=event_type,
+            data=data,
         )
     except Exception as e:
         logger.error(
-            "WebSocket role broadcast failed",
+            "WebSocket role publish failed",
             extra={
                 "extra_data": {
-                    "role": role,
-                    "error_type": type(e).__name__,
+                    "role":          role,
+                    "error_type":    type(e).__name__,
                     "correlation_id": get_correlation_id(),
                 }
             },
         )
 
 
-async def _broadcast_to_authority_layer(event: Dict[str, Any]) -> None:
-
-    await _safe_broadcast_to_role(
+async def _publish_to_authority_layer(
+    event_type: str,
+    data:       Dict[str, Any],
+) -> None:
+    await _safe_publish_to_role(
         role=UserRole.AUTHORITY.value,
-        event=event,
+        event_type=event_type,
+        data=data,
     )
-
-    await _safe_broadcast_to_role(
+    await _safe_publish_to_role(
         role=UserRole.ADMIN.value,
-        event=event,
+        event_type=event_type,
+        data=data,
     )
 
 
@@ -163,13 +178,11 @@ async def _broadcast_to_authority_layer(event: Dict[str, Any]) -> None:
 # =========================================================
 
 async def broadcast_incident_created(*, data: Dict[str, Any]) -> None:
-    event = _wrap_event(event_type="incident.created", data=data)
-    await _broadcast_to_authority_layer(event)
+    await _publish_to_authority_layer("incident.created", data)
 
 
 async def broadcast_incident_updated(*, data: Dict[str, Any]) -> None:
-    event = _wrap_event(event_type="incident.updated", data=data)
-    await _broadcast_to_authority_layer(event)
+    await _publish_to_authority_layer("incident.updated", data)
 
 
 # =========================================================
@@ -177,8 +190,7 @@ async def broadcast_incident_updated(*, data: Dict[str, Any]) -> None:
 # =========================================================
 
 async def broadcast_zone_risk_updated(*, data: Dict[str, Any]) -> None:
-    event = _wrap_event(event_type="zone.risk.updated", data=data)
-    await _broadcast_to_authority_layer(event)
+    await _publish_to_authority_layer("zone.risk.updated", data)
 
 
 # =========================================================
@@ -188,32 +200,30 @@ async def broadcast_zone_risk_updated(*, data: Dict[str, Any]) -> None:
 async def broadcast_notification_created(
     *,
     user_id: Optional[int],
-    data: Dict[str, Any],
+    data:    Dict[str, Any],
 ) -> None:
 
-    event = _wrap_event(event_type="notification.created", data=data)
-
     if user_id is not None:
-        await _safe_broadcast_to_user(
+        await _safe_publish_to_user(
             user_id=user_id,
-            event=event,
+            event_type="notification.created",
+            data=data,
         )
     else:
-        await _broadcast_to_authority_layer(event)
+        await _publish_to_authority_layer("notification.created", data)
 
 
 # =========================================================
 # Tourist Activity Events
 # =========================================================
 
-async def broadcast_tourist_activity_update(
-    *,
-    data: Dict[str, Any],
-) -> None:
+async def broadcast_tourist_activity_update(*, data: Dict[str, Any]) -> None:
+    await _publish_to_authority_layer("tourist.activity.updated", data)
 
-    event = _wrap_event(
-        event_type="tourist.activity.updated",
-        data=data,
-    )
 
-    await _broadcast_to_authority_layer(event)
+# =========================================================
+# Location Events
+# =========================================================
+
+async def broadcast_location_update(*, data: Dict[str, Any]) -> None:
+    await _publish_to_authority_layer("location.update", data)

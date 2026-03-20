@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 from numpy.typing import NDArray
@@ -30,22 +30,24 @@ class RetrainingScheduler:
     def should_retrain(
         self,
         *,
-        model_name: str,
-        live_batch: NDArray[np.float64],
-        model_metadata: Dict[str, Any],
+        model_name:           str,
+        live_batch:           NDArray[np.float64],
+        model_metadata:       Dict[str, Any],
         current_dataset_size: int,
     ) -> Dict[str, Any]:
 
-        now = datetime.utcnow()
+        # datetime.utcnow() is deprecated since Python 3.12 —
+        # use timezone-aware datetime.now(timezone.utc) instead.
+        now = datetime.now(timezone.utc)
 
-        # 1️⃣ Cooldown check
+        # 1. Cooldown check
         if not self._cooldown_passed(model_name, now):
             return {
                 "retrain": False,
-                "reason": "cooldown_active",
+                "reason":  "cooldown_active",
             }
 
-        # 2️⃣ Drift check
+        # 2. Drift check
         drift_result = self._drift_monitor.evaluate(
             live_batch=live_batch,
             model_metadata=model_metadata,
@@ -53,26 +55,26 @@ class RetrainingScheduler:
 
         drift_trigger: bool = bool(drift_result.get("alert", False))
 
-        # 3️⃣ Data growth check
+        # 3. Data growth check
         growth_trigger: bool = self._data_growth_trigger(
             current_dataset_size,
             model_metadata,
         )
 
-        # 4️⃣ Final decision
+        # 4. Final decision
         if drift_trigger or growth_trigger:
             self._last_retrain_time[model_name] = now
 
             return {
-                "retrain": True,
-                "drift_trigger": drift_trigger,
+                "retrain":        True,
+                "drift_trigger":  drift_trigger,
                 "growth_trigger": growth_trigger,
-                "drift_score": float(drift_result.get("drift_score", 0.0)),
+                "drift_score":    float(drift_result.get("drift_score", 0.0)),
             }
 
         return {
-            "retrain": False,
-            "reason": "no_trigger",
+            "retrain":     False,
+            "reason":      "no_trigger",
             "drift_score": float(drift_result.get("drift_score", 0.0)),
         }
 
@@ -83,13 +85,13 @@ class RetrainingScheduler:
     def _cooldown_passed(
         self,
         model_name: str,
-        now: datetime,
+        now:        datetime,
     ) -> bool:
 
         if model_name not in self._last_retrain_time:
             return True
 
-        last_time = self._last_retrain_time[model_name]
+        last_time       = self._last_retrain_time[model_name]
         cooldown_window = timedelta(hours=DEFAULT_RETRAIN_INTERVAL_HOURS)
 
         return (now - last_time) >= cooldown_window
@@ -101,7 +103,7 @@ class RetrainingScheduler:
     def _data_growth_trigger(
         self,
         current_dataset_size: int,
-        metadata: Dict[str, Any],
+        metadata:             Dict[str, Any],
     ) -> bool:
 
         baseline_size_raw = metadata.get("dataset_size")
@@ -121,7 +123,6 @@ class RetrainingScheduler:
             float(current_dataset_size) - baseline_size
         ) / baseline_size
 
-        # Clamp negative growth
         if growth_ratio < 0.0:
             growth_ratio = 0.0
 

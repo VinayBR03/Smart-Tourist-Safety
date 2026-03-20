@@ -26,13 +26,13 @@ class ZoneModelSelector:
         logistic = self._safe_load(
             LogisticZoneModel(),
             ZONE_ARTIFACT.small_model_filename,
-            "zone_logistic_meta.json",
+            ZONE_ARTIFACT.small_metadata_filename,
         )
 
         xgb = self._safe_load(
             XGBoostZoneModel(),
             ZONE_ARTIFACT.large_model_filename,
-            "zone_xgboost_meta.json",
+            ZONE_ARTIFACT.large_metadata_filename,
         )
 
         if logistic is None and xgb is None:
@@ -73,20 +73,20 @@ class ZoneModelSelector:
 
     def _compute_selection_score(self, metadata: Dict[str, Any]) -> float:
 
-        auc = float(metadata.get("validation_auc", 0.0))
-        f1 = float(metadata.get("validation_f1", 0.0))
-        calibration = float(metadata.get("calibration_error", 1.0))
-        drift = float(metadata.get("drift_score", 0.0))
-        dataset_size = int(metadata.get("dataset_size", 0))
+        auc          = float(metadata.get("validation_auc",    0.0))
+        f1           = float(metadata.get("validation_f1",     0.0))
+        calibration  = float(metadata.get("calibration_error", 1.0))
+        drift        = float(metadata.get("drift_score",       0.0))
+        dataset_size = int(metadata.get("dataset_size",         0))
 
         calibration_score = 1.0 - calibration
-        drift_penalty = 1.0 - drift
+        drift_penalty     = 1.0 - drift
 
         score = (
-            0.4 * auc +
-            0.3 * f1 +
+            0.40 * auc +
+            0.30 * f1 +
             0.15 * calibration_score +
-            0.1 * drift_penalty +
+            0.10 * drift_penalty +
             0.05 * self._dataset_bonus(dataset_size)
         )
 
@@ -115,25 +115,16 @@ class ZoneModelSelector:
 
     def _safe_load(
         self,
-        model: ZoneModelType,
+        model:      ZoneModelType,
         model_file: str,
-        meta_file: str,
+        meta_file:  str,
     ) -> Optional[ZoneModelType]:
 
         model_path = self.model_dir / model_file
-        meta_path = self.model_dir / meta_file
+        meta_path  = self.model_dir / meta_file
 
         if not model_path.exists():
             return None
 
         model.load(model_path, meta_path)
         return model
-
-    # =========================================================
-    # Predict
-    # =========================================================
-
-    def predict(self, features: Dict[str, Any]) -> Dict[str, Any]:
-
-        model = self.load_best_model()
-        return model.predict(features)

@@ -8,9 +8,9 @@ from enum import Enum
 # =========================================================
 
 class UserRole(str, Enum):
-    TOURIST = "TOURIST"
+    TOURIST   = "TOURIST"
     AUTHORITY = "AUTHORITY"
-    ADMIN = "ADMIN"
+    ADMIN     = "ADMIN"
 
 
 # =========================================================
@@ -18,20 +18,20 @@ class UserRole(str, Enum):
 # =========================================================
 
 class IncidentStatus(str, Enum):
-    OPEN = "OPEN"
+    OPEN        = "OPEN"
     IN_PROGRESS = "IN_PROGRESS"
-    ESCALATED = "ESCALATED"
-    RESOLVED = "RESOLVED"
-    CLOSED = "CLOSED"
-    CANCELLED = "CANCELLED"
-    REJECTED = "REJECTED"
+    ESCALATED   = "ESCALATED"
+    RESOLVED    = "RESOLVED"
+    CLOSED      = "CLOSED"
+    CANCELLED   = "CANCELLED"
+    REJECTED    = "REJECTED"
 
 
 class IncidentSource(str, Enum):
     MOBILE = "MOBILE"
-    IOT = "IOT"
+    IOT    = "IOT"
     SYSTEM = "SYSTEM"
-    ML = "ML"
+    ML     = "ML"
     HEALTH = "HEALTH"
 
 
@@ -41,17 +41,17 @@ class IncidentSource(str, Enum):
 
 class DeviceType(str, Enum):
     WRISTBAND = "WRISTBAND"
-    NODE = "NODE"
-    GATEWAY = "GATEWAY"
+    NODE      = "NODE"
+    GATEWAY   = "GATEWAY"
 
 
 class DeviceStatus(str, Enum):
-    ACTIVE = "ACTIVE"
-    INACTIVE = "INACTIVE"
-    SUSPENDED = "SUSPENDED"
+    ACTIVE         = "ACTIVE"
+    INACTIVE       = "INACTIVE"
+    SUSPENDED      = "SUSPENDED"
     DECOMMISSIONED = "DECOMMISSIONED"
-    MAINTENANCE = "MAINTENANCE"
-    LOST = "LOST"
+    MAINTENANCE    = "MAINTENANCE"
+    LOST           = "LOST"
 
 
 # =========================================================
@@ -60,8 +60,8 @@ class DeviceStatus(str, Enum):
 
 class EventSource(str, Enum):
     MOBILE = "MOBILE"
-    IOT = "IOT"
-    NODE = "NODE"
+    IOT    = "IOT"
+    NODE   = "NODE"
     SYSTEM = "SYSTEM"
 
 
@@ -70,9 +70,9 @@ class EventSource(str, Enum):
 # =========================================================
 
 class RiskLevel(str, Enum):
-    LOW = "LOW"
+    LOW    = "LOW"
     MEDIUM = "MEDIUM"
-    HIGH = "HIGH"
+    HIGH   = "HIGH"
 
 
 # =========================================================
@@ -81,24 +81,24 @@ class RiskLevel(str, Enum):
 
 class NotificationChannel(str, Enum):
     IN_APP = "IN_APP"
-    EMAIL = "EMAIL"
-    PUSH = "PUSH"
-    SMS = "SMS"
+    EMAIL  = "EMAIL"
+    PUSH   = "PUSH"
+    SMS    = "SMS"
 
 
 class NotificationSeverity(str, Enum):
-    INFO = "INFO"
-    WARNING = "WARNING"
+    INFO     = "INFO"
+    WARNING  = "WARNING"
+    HIGH     = "HIGH"      # ← added: used by crowd anomaly alerts
     CRITICAL = "CRITICAL"
 
 
 class NotificationStatus(str, Enum):
-    PENDING = "PENDING"
-    SENT = "SENT"
-    FAILED = "FAILED"
+    PENDING   = "PENDING"
+    SENT      = "SENT"
+    FAILED    = "FAILED"
     CANCELLED = "CANCELLED"
-    READ = "READ"
-
+    READ      = "READ"
 
 
 # =========================================================
@@ -106,12 +106,11 @@ class NotificationStatus(str, Enum):
 # =========================================================
 
 class MediaType(str, Enum):
-    PROFILE_PHOTO = "PROFILE_PHOTO"
-    INCIDENT_RESOLUTION_PHOTO = "INCIDENT_RESOLUTION_PHOTO"
-    INCIDENT_RESOLUTION_VIDEO = "INCIDENT_RESOLUTION_VIDEO"
-    INCIDENT_EVIDENCE_PHOTO = "INCIDENT_EVIDENCE_PHOTO"
-    INCIDENT_EVIDENCE_VIDEO = "INCIDENT_EVIDENCE_VIDEO"
-    
+    PROFILE_PHOTO              = "PROFILE_PHOTO"
+    INCIDENT_RESOLUTION_PHOTO  = "INCIDENT_RESOLUTION_PHOTO"
+    INCIDENT_RESOLUTION_VIDEO  = "INCIDENT_RESOLUTION_VIDEO"
+    INCIDENT_EVIDENCE_PHOTO    = "INCIDENT_EVIDENCE_PHOTO"
+    INCIDENT_EVIDENCE_VIDEO    = "INCIDENT_EVIDENCE_VIDEO"
 
 
 # =========================================================
@@ -121,55 +120,54 @@ class MediaType(str, Enum):
 class AuditAction(str, Enum):
 
     # Authentication
-    REGISTER_USER = "REGISTER_USER"
-    LOGIN_SUCCESS = "LOGIN_SUCCESS"
-    LOGIN_FAILED = "LOGIN_FAILED"
-    LOGOUT = "LOGOUT"
-    TOKEN_REFRESHED = "TOKEN_REFRESHED"
-    PASSWORD_CHANGED = "PASSWORD_CHANGED"
+    REGISTER_USER            = "REGISTER_USER"
+    LOGIN_SUCCESS            = "LOGIN_SUCCESS"
+    LOGIN_FAILED             = "LOGIN_FAILED"
+    LOGOUT                   = "LOGOUT"
+    TOKEN_REFRESHED          = "TOKEN_REFRESHED"
+    PASSWORD_CHANGED         = "PASSWORD_CHANGED"
 
     # User
-    UPDATE_PROFILE = "UPDATE_PROFILE"
+    UPDATE_PROFILE           = "UPDATE_PROFILE"
     REQUEST_ACCOUNT_DELETION = "REQUEST_ACCOUNT_DELETION"
-    DELETE_ACCOUNT = "DELETE_ACCOUNT"
-    CREATE_USER = "CREATE_USER"
-    CANCEL_ACCOUNT_DELETION = "CANCEL_ACCOUNT_DELETION"
+    DELETE_ACCOUNT           = "DELETE_ACCOUNT"
+    CREATE_USER              = "CREATE_USER"
+    CANCEL_ACCOUNT_DELETION  = "CANCEL_ACCOUNT_DELETION"
 
     # Incident
-    CREATE_INCIDENT = "CREATE_INCIDENT"
-    UPDATE_INCIDENT_STATUS = "UPDATE_INCIDENT_STATUS"
-    ASSIGN_INCIDENT = "ASSIGN_INCIDENT"
-    REASSIGN_INCIDENT = "REASSIGN_INCIDENT"
-    UNASSIGN_INCIDENT = "UNASSIGN_INCIDENT"
+    CREATE_INCIDENT          = "CREATE_INCIDENT"
+    UPDATE_INCIDENT_STATUS   = "UPDATE_INCIDENT_STATUS"
+    ASSIGN_INCIDENT          = "ASSIGN_INCIDENT"
+    REASSIGN_INCIDENT        = "REASSIGN_INCIDENT"
+    UNASSIGN_INCIDENT        = "UNASSIGN_INCIDENT"
 
     # Device
-    UPDATE_DEVICE_STATUS = "UPDATE_DEVICE_STATUS"
-    CREATE_DEVICE = "CREATE_DEVICE"
-    UPDATE_DEVICE = "UPDATE_DEVICE"
-
+    CREATE_DEVICE            = "CREATE_DEVICE"
+    UPDATE_DEVICE            = "UPDATE_DEVICE"
+    UPDATE_DEVICE_STATUS     = "UPDATE_DEVICE_STATUS"
+    ASSIGN_DEVICE            = "ASSIGN_DEVICE"    # ← added: wristband pairing
+    UNASSIGN_DEVICE          = "UNASSIGN_DEVICE"  # ← added: wristband return
 
     # Location & Health
-    UPDATE_LOCATION = "UPDATE_LOCATION"
-    HEALTH_ALERT_TRIGGERED = "HEALTH_ALERT_TRIGGERED"
+    UPDATE_LOCATION          = "UPDATE_LOCATION"
+    HEALTH_ALERT_TRIGGERED   = "HEALTH_ALERT_TRIGGERED"
 
     # Zone
-    CREATE_ZONE = "CREATE_ZONE"
-    UPDATE_ZONE = "UPDATE_ZONE"
+    CREATE_ZONE              = "CREATE_ZONE"
+    UPDATE_ZONE              = "UPDATE_ZONE"
 
     # Media
-    UPLOAD_MEDIA = "UPLOAD_MEDIA"
-    DELETE_MEDIA = "DELETE_MEDIA"
+    UPLOAD_MEDIA             = "UPLOAD_MEDIA"
+    DELETE_MEDIA             = "DELETE_MEDIA"
 
     # Notification
-    CREATE_NOTIFICATION = "CREATE_NOTIFICATION"
-    UPDATE_NOTIFICATION = "UPDATE_NOTIFICATION"
-
-
+    CREATE_NOTIFICATION      = "CREATE_NOTIFICATION"
+    UPDATE_NOTIFICATION      = "UPDATE_NOTIFICATION"
 
     # System
-    ACCESS_DENIED = "ACCESS_DENIED"
-    SYSTEM_MAINTENANCE = "SYSTEM_MAINTENANCE"
-    OUTBOX_PUBLISHED = "OUTBOX_PUBLISHED"
+    ACCESS_DENIED            = "ACCESS_DENIED"
+    SYSTEM_MAINTENANCE       = "SYSTEM_MAINTENANCE"
+    OUTBOX_PUBLISHED         = "OUTBOX_PUBLISHED"
 
 
 # =========================================================
@@ -177,31 +175,37 @@ class AuditAction(str, Enum):
 # =========================================================
 
 class EntityType(str, Enum):
-    USER = "USER"
-    INCIDENT = "INCIDENT"
+    USER                    = "USER"
+    INCIDENT                = "INCIDENT"
     INCIDENT_STATUS_HISTORY = "INCIDENT_STATUS_HISTORY"
-    ZONE = "ZONE"
-    ZONE_STATUS = "ZONE_STATUS"
-    ZONE_RISK_HISTORY = "ZONE_RISK_HISTORY"
-    DEVICE = "DEVICE"
-    DEVICE_ASSIGNMENT = "DEVICE_ASSIGNMENT"
-    HEALTH_TELEMETRY = "HEALTH_TELEMETRY"
-    LOCATION = "LOCATION"
-    LOCATION_EVENT = "LOCATION_EVENT"
-    NOTIFICATION = "NOTIFICATION"
-    MEDIA = "MEDIA"
-    OUTBOX_EVENT = "OUTBOX_EVENT"
-    SYSTEM = "SYSTEM"
-    ASSIGNMENT = "ASSIGNMENT"
+    ZONE                    = "ZONE"
+    ZONE_STATUS             = "ZONE_STATUS"
+    ZONE_RISK_HISTORY       = "ZONE_RISK_HISTORY"
+    DEVICE                  = "DEVICE"
+    DEVICE_ASSIGNMENT       = "DEVICE_ASSIGNMENT"
+    HEALTH_TELEMETRY        = "HEALTH_TELEMETRY"
+    LOCATION                = "LOCATION"
+    LOCATION_EVENT          = "LOCATION_EVENT"
+    NOTIFICATION            = "NOTIFICATION"
+    MEDIA                   = "MEDIA"
+    OUTBOX_EVENT            = "OUTBOX_EVENT"
+    SYSTEM                  = "SYSTEM"
+    ASSIGNMENT              = "ASSIGNMENT"
 
-# ====================================================================
-# Languages
-# ====================================================================
+
+# =========================================================
+# LANGUAGES
+#
+# Values are lowercase to match LOCALES dict keys in
+# email_template.py ("en", "hi", "kn", "te", "ta", "ml").
+# Uppercase values caused language resolution to always
+# fall back to English regardless of user preference.
+# =========================================================
 
 class UserLanguage(str, Enum):
-    EN= "EN"
-    HI = "HI"
-    KN = "KN"
-    TE = "TE"
-    TA = "TA"
-    ML =  "ML"
+    EN = "en"
+    HI = "hi"
+    KN = "kn"
+    TE = "te"
+    TA = "ta"
+    ML = "ml"

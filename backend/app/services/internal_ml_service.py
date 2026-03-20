@@ -17,22 +17,22 @@ logger = get_logger(__name__)
 
 class InternalMLService:
 
-    MAX_FAILURES = 5
-    CIRCUIT_RESET_SECONDS = 60
+    MAX_FAILURES              = 5
+    CIRCUIT_RESET_SECONDS     = 60
     MAX_FEATURE_PAYLOAD_BYTES = 100_000
-    RETRY_ATTEMPTS = 1
+    RETRY_ATTEMPTS            = 1
 
     SUPPORTED_DOMAINS = {"zone", "health", "crowd"}
 
     def __init__(self) -> None:
-        self.enabled = settings.ML_ENGINE_ENABLED
-        self.base_url = (settings.ML_ENGINE_URL or "").rstrip("/")
-        self.timeout = settings.ML_ENGINE_TIMEOUT_SECONDS
+        self.enabled        = settings.ML_ENGINE_ENABLED
+        self.base_url       = (settings.ML_ENGINE_URL or "").rstrip("/")
+        self.timeout        = settings.ML_ENGINE_TIMEOUT_SECONDS
         self.internal_token = settings.INTERNAL_SERVICE_TOKEN
 
-        self._failure_count = 0
-        self._circuit_opened_at: Optional[float] = None
-        self._lock = threading.Lock()
+        self._failure_count:      int            = 0
+        self._circuit_opened_at:  Optional[float] = None
+        self._lock                               = threading.Lock()
 
     # =========================================================
     # Circuit Breaker
@@ -47,7 +47,7 @@ class InternalMLService:
                 return False
 
             if time.time() - self._circuit_opened_at > self.CIRCUIT_RESET_SECONDS:
-                self._failure_count = 0
+                self._failure_count     = 0
                 self._circuit_opened_at = None
                 return False
 
@@ -66,7 +66,7 @@ class InternalMLService:
 
     def _record_success(self) -> None:
         with self._lock:
-            self._failure_count = 0
+            self._failure_count     = 0
             self._circuit_opened_at = None
 
     # =========================================================
@@ -76,7 +76,7 @@ class InternalMLService:
     def _predict(
         self,
         *,
-        domain: str,
+        domain:   str,
         features: Dict[str, Any],
     ) -> Optional[Dict[str, Any]]:
 
@@ -105,14 +105,16 @@ class InternalMLService:
 
         url = f"{self.base_url}/predict"
 
+        # ── FIX: AI engine uses HTTPBearer (Authorization: Bearer <token>)
+        # not a custom X-Internal-Token header. Both sides must match.
         headers = {
-            "X-Internal-Token": self.internal_token,
-            "Content-Type": "application/json",
+            "Authorization":    f"Bearer {self.internal_token}",
+            "Content-Type":     "application/json",
             "X-Correlation-ID": get_correlation_id(),
         }
 
         payload = {
-            "domain": domain,
+            "domain":   domain,
             "features": features,
         }
 
@@ -134,13 +136,13 @@ class InternalMLService:
                 return validated
 
             except Timeout:
-                logger.warning("ML timeout")
+                logger.warning("ML timeout attempt=%d", attempt)
 
             except RequestException:
-                logger.warning("ML request error")
+                logger.warning("ML request error attempt=%d", attempt)
 
             except Exception:
-                logger.exception("Unexpected ML error")
+                logger.exception("Unexpected ML error attempt=%d", attempt)
 
             if attempt >= self.RETRY_ATTEMPTS:
                 self._record_failure()
@@ -163,7 +165,7 @@ class InternalMLService:
             return None
 
         try:
-            risk_enum = RiskLevel(result["risk_level"])
+            risk_enum  = RiskLevel(result["risk_level"])
             risk_score = float(result["risk_score"])
         except Exception:
             return None
@@ -174,8 +176,8 @@ class InternalMLService:
         risk_score = max(0.0, min(1.0, risk_score))
 
         return {
-            "risk_score": risk_score,
-            "risk_level": risk_enum.value,
+            "risk_score":    risk_score,
+            "risk_level":    risk_enum.value,
             "model_version": result.get("model_version"),
         }
 
@@ -200,14 +202,14 @@ class InternalMLService:
     def _validate_engine_response(
         self,
         domain: str,
-        data: Dict[str, Any],
+        data:   Dict[str, Any],
     ) -> Dict[str, Any]:
 
         if not isinstance(data, dict):
             raise ValueError("Invalid ML response")
 
         if data.get("status") != "success":
-            raise ValueError("ML engine error")
+            raise ValueError(f"ML engine error: {data.get('message', 'unknown')}")
 
         prediction = data.get("prediction")
         if not isinstance(prediction, dict):
@@ -215,9 +217,9 @@ class InternalMLService:
 
         if domain == "zone":
             required = {"risk_score", "risk_level"}
-            missing = required - prediction.keys()
+            missing  = required - prediction.keys()
             if missing:
-                raise ValueError("Missing required fields")
+                raise ValueError(f"Missing required fields: {missing}")
 
         return prediction
 

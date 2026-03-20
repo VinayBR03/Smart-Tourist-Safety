@@ -2,12 +2,14 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import select, desc
 
 from app.core.database import get_db
-from app.core.dependencies import require_roles
+from app.core.dependencies import require_roles, get_current_user
 from app.core.enums import UserRole
 
 from app.models.user import User
+from app.models.health_telemetry import HealthTelemetry
 
 from app.services.tourist_service import (
     get_tourist_by_id,
@@ -15,6 +17,8 @@ from app.services.tourist_service import (
     get_profile_photo_key,
     request_account_deletion,
 )
+
+from app.schemas.health_schema import HealthTelemetryResponse
 
 from app.core.exceptions import (
     NotFoundError,
@@ -46,6 +50,50 @@ def get_my_profile(
     """
 
     return get_tourist_by_id(db, tourist_id=current_user.id)
+
+
+# =========================================================
+# Get Tourist Health History
+# GET /tourists/{tourist_id}/health
+# Called by: HealthMonitoringPage via getTouristHealthHistory()
+# =========================================================
+
+@router.get(
+    "/{tourist_id}/health",
+    response_model=list[HealthTelemetryResponse],
+    status_code=status.HTTP_200_OK,
+)
+def get_tourist_health_history(
+    tourist_id: int,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Returns paginated health telemetry history for a tourist.
+    Tourists can only access their own records.
+    Authority and Admin can access any tourist's records.
+    """
+
+    is_authority_or_admin = current_user.role in (
+        UserRole.AUTHORITY,
+        UserRole.ADMIN,
+    )
+
+    if not is_authority_or_admin and current_user.id != tourist_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied.",
+        )
+
+    stmt = (
+        select(HealthTelemetry)
+        .where(HealthTelemetry.tourist_id == tourist_id)
+        .order_by(desc(HealthTelemetry.recorded_at))
+        .limit(min(limit, 200))
+    )
+
+    return db.execute(stmt).scalars().all()
 
 
 # =========================================================

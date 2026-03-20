@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from typing import Optional, List
 from math import radians, sin, cos, sqrt, atan2, isfinite
@@ -7,7 +8,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 
-from geoalchemy2.functions import ST_SetSRID, ST_Point
 from geoalchemy2.shape import to_shape, from_shape
 
 from app.models.location import Location
@@ -31,6 +31,8 @@ from app.services.audit_service import create_audit_log
 from app.services.throttle_service import should_accept_location
 from app.core.rate_limiter import RateLimiter
 
+from app.services.realtime_service import broadcast_location_update
+
 
 rate_limiter = RateLimiter()
 
@@ -43,11 +45,13 @@ ZONE_ACCURACY_THRESHOLD = 100
 # Utilities
 # =========================================================
 
+
 def _now():
     return datetime.now(timezone.utc)
 
 
 def _validate_coordinates(latitude: float, longitude: float):
+
     try:
         latitude = float(latitude)
         longitude = float(longitude)
@@ -65,7 +69,9 @@ def _validate_coordinates(latitude: float, longitude: float):
 
 
 def _haversine(lat1, lon1, lat2, lon2):
+
     R = 6371000
+
     dlat = radians(lat2 - lat1)
     dlon = radians(lon2 - lon1)
 
@@ -77,15 +83,12 @@ def _haversine(lat1, lon1, lat2, lon2):
     )
 
     c = 2 * atan2(sqrt(a), sqrt(1 - a))
+
     return R * c
 
 
 def _extract_coordinates(geometry):
-    """
-    Safely extract longitude and latitude from:
-    - WKBElement (PostGIS)
-    - Shapely Point
-    """
+
     try:
         point = to_shape(geometry)
     except Exception:
@@ -97,6 +100,7 @@ def _extract_coordinates(geometry):
 # =========================================================
 # Update User Location
 # =========================================================
+
 
 def update_user_location(
     db: Session,
@@ -129,10 +133,12 @@ def update_user_location(
     )
 
     user = db.execute(stmt).scalar_one_or_none()
+
     if not user:
         raise NotFoundError("User")
 
     now = _now()
+
     location_point = from_shape(Point(longitude, latitude), 4326)
 
     snapshot_stmt = (
@@ -143,8 +149,8 @@ def update_user_location(
 
     existing = db.execute(snapshot_stmt).scalar_one_or_none()
 
-   # =====================================================
-    # Movement Guard (Deterministic & Physically Correct)
+    # =====================================================
+    # Movement Guard
     # =====================================================
 
     if existing and existing.updated_at and existing.coordinates:
@@ -153,13 +159,11 @@ def update_user_location(
 
         time_diff = (now - existing.updated_at).total_seconds()
 
-        # Clamp to minimum 1 second to avoid microsecond artifacts
         if time_diff < 1:
             time_diff = 1
 
         distance = _haversine(prev_lat, prev_lon, latitude, longitude)
 
-        # Always ignore tiny jitter
         if distance < MIN_MOVEMENT_METERS:
             return existing
 
@@ -179,12 +183,16 @@ def update_user_location(
     # =====================================================
 
     if existing:
+
         existing.coordinates = location_point
         existing.updated_at = now
         existing.battery_percentage = battery_percentage
         existing.accuracy_meters = accuracy_meters
+
         snapshot = existing
+
     else:
+
         snapshot = Location(
             tourist_id=user_id,
             coordinates=location_point,
@@ -192,11 +200,16 @@ def update_user_location(
             battery_percentage=battery_percentage,
             accuracy_meters=accuracy_meters,
         )
+
         db.add(snapshot)
+
         try:
             db.flush()
+
         except IntegrityError:
+
             db.rollback()
+
             return update_user_location(
                 db=db,
                 user_id=user_id,
@@ -213,6 +226,7 @@ def update_user_location(
     zone_id = None
 
     if accuracy_meters is None or accuracy_meters <= ZONE_ACCURACY_THRESHOLD:
+
         try:
             zone_id, _ = resolve_zone_for_location(
                 db,
@@ -239,14 +253,46 @@ def update_user_location(
         )
     )
 
+    # =====================================================
+    # Outbox Event
+    # =====================================================
+
     create_outbox_event(
         db=db,
         topic="location.event",
         payload={
             "tourist_id": user_id,
+            "latitude": latitude,
+            "longitude": longitude,
             "zone_id": zone_id,
+            "timestamp": now.isoformat(),
         },
     )
+
+    # =====================================================
+    # Realtime WebSocket Broadcast
+    # =====================================================
+
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(
+            broadcast_location_update(
+                data={
+                    "tourist_id": user_id,
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "zone_id": zone_id,
+                    "timestamp": now.isoformat(),
+                    "accuracy": accuracy_meters,
+                }
+            )
+        )
+    except RuntimeError:
+        pass
+
+    # =====================================================
+    # Audit Log
+    # =====================================================
 
     create_audit_log(
         db=db,
@@ -256,13 +302,13 @@ def update_user_location(
         entity_id=user_id,
     )
 
-
     return snapshot
 
 
 # =========================================================
 # Read Functions
 # =========================================================
+
 
 def get_latest_location_for_user(
     db: Session,

@@ -29,6 +29,7 @@ fastapi==0.135.0
 freezegun==1.5.5
 GeoAlchemy2==0.18.3
 greenlet==3.3.2
+gunicorn==21.2.0
 h11==0.16.0
 httpcore==1.0.9
 httptools==0.7.1
