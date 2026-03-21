@@ -153,8 +153,8 @@ class Settings(BaseSettings):
     # PUSH
     # =========================================================
 
-    FCM_SERVER_KEY: Optional[str] = None
-    FCM_SEND_URL: str = "https://fcm.googleapis.com/fcm/send"
+    FCM_PROJECT_ID: Optional[str] = None
+    FCM_SERVICE_ACCOUNT_JSON: Optional[str] = None
 
     # =========================================================
     # SMS
@@ -264,8 +264,11 @@ class Settings(BaseSettings):
             ]):
                 raise ValueError("S3 credentials required when ENABLE_S3=True")
 
-        if self.ENABLE_PUSH and not self.FCM_SERVER_KEY:
-            raise ValueError("FCM_SERVER_KEY required when ENABLE_PUSH=True")
+        if self.ENABLE_PUSH:
+            if not self.FCM_PROJECT_ID:
+                raise ValueError("FCM_PROJECT_ID required when ENABLE_PUSH=True")
+            if not self.FCM_SERVICE_ACCOUNT_JSON:
+                raise ValueError("FCM_SERVICE_ACCOUNT_JSON required when ENABLE_PUSH=True")
 
         if self.ENABLE_SMS:
             if not all([
