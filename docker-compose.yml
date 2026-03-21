@@ -1,14 +1,5 @@
-version: "3.9"
-
 # =================================================================
 # Sentinel Tour — Docker Compose
-# =================================================================
-# Before first run:
-#   1. Copy backend/.env.docker and fill in secrets
-#   2. Copy ai_engine/.env.docker and fill in token
-#   3. Run: docker compose up -d postgres redis
-#   4. Run: docker compose run --rm backend alembic upgrade head
-#   5. Run: docker compose up -d
 # =================================================================
 
 services:
@@ -18,10 +9,9 @@ services:
   # ═══════════════════════════════════════════
 
   postgres:
-    image: timescale/timescaledb:latest-pg16
+    image: timescale/timescaledb-ha:pg16
     container_name: tourist_postgres
     environment:
-      # ← UPDATE: change strongpassword before deploying
       POSTGRES_USER:     tourist_user
       POSTGRES_PASSWORD: strongpassword
       POSTGRES_DB:       tourist_safety_db
@@ -40,7 +30,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: tourist_redis
-    # ← UPDATE: add --requirepass your_password for production
     command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
       - "6379:6379"
@@ -62,13 +51,6 @@ services:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - mosquitto_data:/mosquitto/data
     restart: unless-stopped
-    healthcheck:
-      # Use TCP check — mosquitto_pub may not be available in all builds
-      test: ["CMD-SHELL", "nc -z localhost 1883 || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
@@ -79,37 +61,30 @@ services:
     volumes:
       - zookeeper_data:/var/lib/zookeeper/data
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
 
   kafka:
     image: confluentinc/cp-kafka:7.6.0
     container_name: tourist_kafka
     depends_on:
       zookeeper:
-        condition: service_healthy
+        condition: service_started
     ports:
       - "9092:9092"
     environment:
       KAFKA_BROKER_ID:                        1
       KAFKA_ZOOKEEPER_CONNECT:                zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS:             PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:   PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS:                        PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS:             PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME:       PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE:        "true"
       KAFKA_LOG_RETENTION_HOURS:              168
+      KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS:     6000
+      KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS:  6000
     volumes:
       - kafka_data:/var/lib/kafka/data
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 20s
 
   # ═══════════════════════════════════════════
   # Application Services
@@ -125,8 +100,6 @@ services:
     ports:
       - "8001:8001"
     volumes:
-      # Model artifacts persist across deploys — never baked into image.
-      # Retraining tasks write here; model_registry reads from here.
       - ./ai_engine/artifacts:/app/artifacts
     restart: unless-stopped
     healthcheck:
@@ -147,11 +120,7 @@ services:
       redis:
         condition: service_healthy
       kafka:
-        condition: service_healthy
-      # service_started (not service_healthy) — backend falls back
-      # to rule-based scoring if AI engine is still loading models.
-      # Using service_healthy here would block backend startup for
-      # up to 90s waiting for LSTM model load.
+        condition: service_started
       ai-engine:
         condition: service_started
     env_file:
@@ -159,9 +128,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Firebase service account for FCM push notifications.
-      # Only needed when ENABLE_PUSH=True.
-      - ./backend/app/secrets/sentinel-tour-firebase-adminsdk-fbsvc-c87847b6c7.json:ro
+      - ./backend/app/secrets/sentinel-tour-firebase-adminsdk-fbsvc-c87847b6c7.json:/app/secrets/firebase-service-account.json:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -186,7 +153,7 @@ services:
       redis:
         condition: service_healthy
       kafka:
-        condition: service_healthy
+        condition: service_started
     env_file:
       - ./backend/.env.docker
     restart: unless-stopped
@@ -202,26 +169,23 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: tourist_celery_beat
-    # Use default PersistentScheduler — stores schedule in celerybeat-schedule file.
-    # django_celery_beat is Django-only and won't work with FastAPI.
-    # For Redis-backed distributed beat use redbeat (add to requirements.txt).
     command: >
       celery -A app.core.celery_app.celery_app beat
       --loglevel=info
       --scheduler celery.beat.PersistentScheduler
+      --schedule /tmp/celerybeat-schedule
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
       kafka:
-        condition: service_healthy
+        condition: service_started
     env_file:
       - ./backend/.env.docker
-    volumes:
-      # Persist beat schedule so periodic tasks survive restarts
-      - celerybeat_data:/app/celerybeat-schedule
     restart: unless-stopped
+    healthcheck:
+      disable: true
 
   mqtt-ingestion:
     build:
@@ -230,13 +194,13 @@ services:
     container_name: tourist_mqtt_ingestion
     depends_on:
       mosquitto:
-        condition: service_healthy
+        condition: service_started
       kafka:
-        condition: service_healthy
+        condition: service_started
     environment:
       MQTT_BROKER:       tcp://mosquitto:1883
       MQTT_TOPIC_PREFIX: crowdguard
-      KAFKA_BROKERS:     kafka:9092
+      KAFKA_BROKERS:     kafka:29092
       KAFKA_TOPIC:       iot.telemetry
     restart: unless-stopped
 
@@ -246,7 +210,7 @@ services:
 
   web-dashboard:
     build:
-      context: ./web-dashboard
+      context: ./frontend/web-dashboard
       dockerfile: Dockerfile
     container_name: tourist_web_dashboard
     depends_on:
@@ -255,6 +219,11 @@ services:
     ports:
       - "3000:3000"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 volumes:
   postgres_data:
@@ -262,4 +231,3 @@ volumes:
   mosquitto_data:
   zookeeper_data:
   kafka_data:
-  celerybeat_data:
