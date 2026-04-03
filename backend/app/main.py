@@ -149,7 +149,7 @@ app = FastAPI(
 app.add_middleware(AppMiddleware)
 
 if settings.ALLOWED_ORIGINS == "*":
-    allow_origins = ["http://172.21.112.1:3000", "http://localhost:3000"]
+    allow_origins = ["http://192.168.31.33:3000","http://localhost:3000"]
 else:
     allow_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")]
 
@@ -186,17 +186,13 @@ app.include_router(internal.router)
 # Health Checks
 # =========================================================
 
-@app.get("/")
-def health_check():
-    return {
-        "status":      "running",
-        "environment": settings.ENVIRONMENT,
-    }
-
-
 @app.get("/health")
 def readiness_check():
     return {
         "database":    "healthy" if check_db_health() else "unhealthy",
         "environment": settings.ENVIRONMENT,
     }
+
+@app.get("/")
+def root():
+    return {"message": "FastApi server is running"}

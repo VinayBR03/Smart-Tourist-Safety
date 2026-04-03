@@ -8,6 +8,7 @@ from pydantic import (
     Field,
     ConfigDict,
     field_validator,
+    model_validator
 )
 
 from app.core.enums import UserRole
@@ -226,3 +227,16 @@ class AuthenticatedUserResponse(BaseModel):
         from_attributes=True,
         frozen=True,
     )
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
+    confirm_password: str
+
+    @model_validator(mode='after')
+    def passwords_match(self) -> 'ChangePasswordRequest':
+        if self.new_password != self.confirm_password:
+            raise ValueError("New passwords do not match")
+        if self.new_password == self.current_password:
+            raise ValueError("New password must differ from current password")
+        return self

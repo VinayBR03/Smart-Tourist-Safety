@@ -139,45 +139,67 @@ class S3Client:
             raise ServiceUnavailableError("S3 unavailable")
 
     # =========================================================
-# Get Object Metadata
-# =========================================================
+    # Get Object Metadata
+    # =========================================================
 
-@classmethod
-def get_object_metadata(cls, key: str):
+    @classmethod
+    def get_object_metadata(cls, key: str):
 
-    client = cls._get_client()
+        client = cls._get_client()
 
-    try:
+        try:
 
-        response = client.head_object(
-            Bucket=settings.AWS_S3_BUCKET,
-            Key=key,
-        )
+            response = client.head_object(
+                Bucket=settings.AWS_S3_BUCKET,
+                Key=key,
+            )
 
-        return {
-            "size": response["ContentLength"],
-            "content_type": response.get("ContentType"),
-        }
+            return {
+                "size": response["ContentLength"],
+                "content_type": response.get("ContentType"),
+            }
 
-    except ClientError as e:
+        except ClientError as e:
 
-        error_code = e.response.get("Error", {}).get("Code")
+            error_code = e.response.get("Error", {}).get("Code")
 
-        if error_code in ("404", "NoSuchKey"):
-            return None
+            if error_code in ("404", "NoSuchKey"):
+                return None
 
-        logger.exception(
-            "Failed to fetch S3 metadata",
-            extra={"key": key, "error": str(e)},
-        )
+            logger.exception(
+                "Failed to fetch S3 metadata",
+                extra={"key": key, "error": str(e)},
+            )
 
-        raise ServiceUnavailableError("S3 unavailable")
+            raise ServiceUnavailableError("S3 unavailable")
 
-    except BotoCoreError as e:
+        except BotoCoreError as e:
 
-        logger.exception(
-            "S3 connection error",
-            extra={"key": key, "error": str(e)},
-        )
+            logger.exception(
+                "S3 connection error",
+                extra={"key": key, "error": str(e)},
+            )
 
-        raise ServiceUnavailableError("S3 unavailable")
+            raise ServiceUnavailableError("S3 unavailable")
+
+    # =========================================================
+    # Presigned Download URL (MISSING METHOD)
+    # =========================================================
+        
+    @classmethod
+    def generate_presigned_download_url(cls, key: str, expires_in: int = 3600) -> str:
+        """
+        Generates a URL for the mobile app to display the image.
+        """
+        client = cls._get_client()
+        try:
+            return client.generate_presigned_url(
+                ClientMethod="get_object",
+                Params={
+                    "Bucket": settings.AWS_S3_BUCKET,
+                    "Key": key,
+                },
+                ExpiresIn=expires_in,
+            )
+        except (BotoCoreError, ClientError):
+            raise ServiceUnavailableError("Could not generate download URL")

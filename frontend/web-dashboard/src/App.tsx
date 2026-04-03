@@ -1,15 +1,18 @@
-import { RouterProvider } from "react-router-dom"
+// src/App.tsx
 
-import { router } from "./app/router"
-
-
-
-/* =========================================================
-APP ROOT
-========================================================= */
+import { useState, useCallback } from 'react';
+import { RouterProvider } from 'react-router-dom';
+import { router }         from './app/router';
+import { SplashScreen }   from './components/common/SplashScreen';
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+  const handleDone = useCallback(() => setShowSplash(false), []);
 
-  return <RouterProvider router={router} />
-
+  return (
+    <>
+      {showSplash && <SplashScreen onDone={handleDone} />}
+      <RouterProvider router={router} />
+    </>
+  );
 }

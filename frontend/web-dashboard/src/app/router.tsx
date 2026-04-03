@@ -26,6 +26,9 @@ import { UsersPage }           from '../pages/admin/UsersPage';
 import { AuthoritiesPage }     from '../pages/admin/AuthoritiesPage';
 import { SystemAnalyticsPage } from '../pages/admin/SystemAnalyticsPage';
 
+// Settings Pages
+import { SettingsPage } from '../pages/settings/SettingsPage';
+
 // Components & Hooks
 import { Loader }   from '../components/common/Loader';
 import { useAuth }  from '../hooks/useAuth';
@@ -144,6 +147,10 @@ export const router = createBrowserRouter([
       {
         path: 'notifications',
         element: <NotificationsPage />,
+      },
+      {
+        path: 'settings',
+        element: <SettingsPage />,
       },
       {
         path: 'analytics',

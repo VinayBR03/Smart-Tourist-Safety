@@ -388,3 +388,57 @@ def revoke_refresh_token(
     db_token.revoked_at = datetime.now(timezone.utc)
 
     db.flush()
+
+# =========================================================
+# CHANGE PASSWORD
+# =========================================================
+
+def change_password(
+    db: Session,
+    *,
+    user_id: int,
+    current_password: str,
+    new_password: str,
+) -> None:
+
+    user = (
+        db.query(User)
+        .filter(User.id == user_id)
+        .with_for_update()
+        .first()
+    )
+
+    if not user:
+        raise UnauthorizedError("User not found")
+
+    if not verify_password(current_password, user.password_hash):
+        raise UnauthorizedError("Current password is incorrect")
+
+    try:
+        new_hash = hash_password(new_password)
+    except ValueError as e:
+        raise ValidationError(str(e))
+
+    user.password_hash = new_hash
+    user.password_changed_at = datetime.now(timezone.utc)
+    user.token_version += 1  # Invalidate all existing sessions
+
+    db.flush()
+
+    create_audit_log(
+        db=db,
+        user_id=user.id,
+        action=AuditAction.PASSWORD_CHANGED,
+        entity_type=EntityType.USER,
+        entity_id=user.id,
+    )
+
+    logger.info(
+        "Password changed",
+        extra={
+            "extra_data": {
+                "user_id": user.id,
+                "correlation_id": get_correlation_id(),
+            }
+        },
+    )

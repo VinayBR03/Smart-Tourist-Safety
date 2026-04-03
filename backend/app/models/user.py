@@ -65,7 +65,7 @@ class User(Base, TimestampMixin, VersionMixin, SoftDeleteMixin):
     # =========================================================
 
     preferred_language: Mapped[UserLanguage] = mapped_column(
-        SAEnum(UserLanguage, name="user_language_enum"),
+        SAEnum(UserLanguage, name="user_language_enum",),
         default=UserLanguage.EN,
         nullable=False,
         index=True,

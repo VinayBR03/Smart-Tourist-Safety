@@ -42,3 +42,19 @@ export async function refreshToken(token: string): Promise<TokenResponse> {
 export async function getMe(): Promise<User> {
   return apiClient.get<User>('/auth/me');
 }
+
+// ─────────────────────────────────────────────
+// Change password
+// ─────────────────────────────────────────────
+
+export interface ChangePasswordRequest {
+  current_password:  string;
+  new_password:      string;
+  confirm_password:  string;
+}
+
+export async function changePassword(
+  payload: ChangePasswordRequest,
+): Promise<void> {
+  return apiClient.post<void>('/auth/change-password', payload);
+}

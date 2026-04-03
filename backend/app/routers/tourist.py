@@ -150,6 +150,8 @@ def update_my_profile(
             tourist_id=current_user.id,
             updates=payload,
         )
+        db.commit()
+        db.refresh(updated)
         return {"updated": True, "user_id": updated.id}
     except ValidationError as e:
         raise HTTPException(

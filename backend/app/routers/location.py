@@ -118,7 +118,8 @@ def get_my_latest_location(
             db=db,
             user_id=current_user.id,
         )
-
+        db.commit()
+        db.refresh(location)
         return serialize_location(location)
 
     except NotFoundError:

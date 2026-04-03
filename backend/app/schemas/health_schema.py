@@ -164,8 +164,8 @@ class HealthTelemetryResponse(BaseModel):
     alert_type: Optional[str]
 
     recorded_at: datetime
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(
         from_attributes=True,

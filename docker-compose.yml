@@ -219,6 +219,8 @@ services:
     ports:
       - "3000:3000"
     restart: unless-stopped
+    volumes:
+      - ./frontend/web-dashboard/public/config.js:/usr/share/nginx/html/config.js
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000"]
       interval: 30s

@@ -11,6 +11,7 @@ from app.schemas.auth_schema import (
     RefreshTokenRequest,
     LogoutRequest,
     AuthenticatedUserResponse,
+    ChangePasswordRequest,
 )
 
 from app.services.auth_service import (
@@ -18,6 +19,7 @@ from app.services.auth_service import (
     authenticate_user,
     refresh_access_token,
     revoke_refresh_token,
+    change_password,
 )
 
 from app.core.dependencies import get_current_user
@@ -193,3 +195,38 @@ def get_me(
     current_user: User = Depends(get_current_user),
 ):
     return current_user
+
+# =========================================================
+# Change Password
+# =========================================================
+
+@router.post(
+    "/change-password",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def change_password_endpoint(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        change_password(
+            db=db,
+            user_id=current_user.id,
+            current_password=payload.current_password,
+            new_password=payload.new_password,
+        )
+        db.commit()
+        return
+
+    except UnauthorizedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )

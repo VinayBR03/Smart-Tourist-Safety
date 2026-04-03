@@ -31,6 +31,10 @@ from app.services.outbox_service import create_outbox_event
 from app.core.rate_limiter import RateLimiter
 from app.core.config import settings
 
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 s3_client = S3Client()
 rate_limiter = RateLimiter()
@@ -44,6 +48,8 @@ MAX_MEDIA_PER_INCIDENT = settings.MAX_MEDIA_PER_INCIDENT
 ALLOWED_CONTENT_TYPES = {
     "image/jpeg",
     "image/png",
+    "image/jpg",
+    "image/livephoto",
     "video/mp4",
 }
 
@@ -163,6 +169,7 @@ def generate_presigned_upload(
     key = _generate_s3_key(
         user_id=user_id,
         media_type=media_type,
+        content_type=content_type,
         incident_id=incident_id,
     )
 
@@ -189,6 +196,8 @@ def confirm_media_upload(
     s3_key: str,
     incident_id: Optional[int],
 ):
+    
+    now = _now()
 
     if not S3_KEY_REGEX.match(s3_key) or ".." in s3_key:
         raise ValidationError("Invalid S3 key")
@@ -233,8 +242,25 @@ def confirm_media_upload(
 
         if count >= MAX_MEDIA_PER_INCIDENT:
             raise ConflictError("Incident media limit reached")
+    
+    if media_type == MediaType.PROFILE_PHOTO:
+        # Mark the old photo as deleted so the unique index allows the new one
+        old_photo = db.query(Media).filter(
+            Media.user_id == user_id,
+            Media.media_type == MediaType.PROFILE_PHOTO,
+            Media.is_deleted.is_(False)
+        ).first()
 
-    now = _now()
+        if old_photo:
+            # 1. Soft delete in DB to satisfy unique index
+            old_photo.is_deleted = True
+            old_photo.deleted_at = now
+            
+            # 2. Cleanup S3 (Optional but recommended)
+            try:
+                s3_client.delete_object(old_photo.s3_key)
+            except Exception as e:
+                logger.warning(f"Cleanup of old S3 photo failed: {e}")
 
     media = Media(
         user_id=user_id if media_type == MediaType.PROFILE_PHOTO else None,
@@ -248,7 +274,14 @@ def confirm_media_upload(
     )
 
     db.add(media)
-    db.flush()
+
+    try:
+        db.commit()  # Make it permanent
+        db.refresh(media)  # Reload the object with DB-generated IDs/times
+    except Exception as e:
+        db.rollback()  # If something fails, undo everything
+        logger.error(f"Failed to commit media upload: {e}")
+        raise
 
     create_audit_log(
         db=db,
@@ -308,18 +341,26 @@ def _generate_s3_key(
     *,
     user_id: int,
     media_type: MediaType,
+    content_type: str,
     incident_id: Optional[int],
 ) -> str:
 
     unique = uuid.uuid4().hex
 
+    ext_map = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "video/mp4": ".mp4",
+    }
+    ext = ext_map.get(content_type, "")
+
     if media_type == MediaType.PROFILE_PHOTO:
-        return f"profile-photo/{user_id}/{unique}"
+        return f"profile-photo/{user_id}/{unique}{ext}"
 
     if media_type in {
         MediaType.INCIDENT_EVIDENCE_PHOTO,
         MediaType.INCIDENT_EVIDENCE_VIDEO,
     }:
-        return f"incident-media/{incident_id}/evidence/{unique}"
+        return f"incident-media/{incident_id}/evidence/{unique}{ext}"
 
-    return f"incident-media/{incident_id}/resolution/{unique}"
+    return f"incident-media/{incident_id}/resolution/{unique}{ext}"

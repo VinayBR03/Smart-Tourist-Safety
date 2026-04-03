@@ -43,11 +43,23 @@ MAX_DESCRIPTION_LENGTH = 2000
 # =========================================================
 
 ALLOWED_TRANSITIONS = {
-    IncidentStatus.OPEN: {IncidentStatus.IN_PROGRESS, IncidentStatus.RESOLVED},
-    IncidentStatus.IN_PROGRESS: {IncidentStatus.RESOLVED},
-    IncidentStatus.RESOLVED: {IncidentStatus.CLOSED},
-    IncidentStatus.CLOSED: set(),
+    IncidentStatus.OPEN: {
+        IncidentStatus.IN_PROGRESS,
+        IncidentStatus.RESOLVED,
+        IncidentStatus.REJECTED, 
+        IncidentStatus.ESCALATED,  
+    },
+    IncidentStatus.IN_PROGRESS: {
+        IncidentStatus.RESOLVED,
+        IncidentStatus.ESCALATED,  
+        IncidentStatus.CANCELLED,  
+    },
+    IncidentStatus.ESCALATED: {
+        IncidentStatus.IN_PROGRESS,
+        IncidentStatus.RESOLVED,
+    },
 }
+
 
 
 # =========================================================

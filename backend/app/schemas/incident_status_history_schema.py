@@ -5,6 +5,8 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     model_validator,
+    Field,
+    AliasChoices,
 )
 
 from app.core.enums import IncidentStatus
@@ -67,11 +69,12 @@ class IncidentTimelineResponse(BaseModel):
     No freshness validation is applied here.
     """
 
-    status: IncidentStatus
+    status: IncidentStatus = Field(validation_alias=AliasChoices("new_status","status"))
     changed_at: datetime
     changed_by: Optional[int]
 
     model_config = ConfigDict(
         from_attributes=True,
+        populate_by_name=True,
         frozen=True,
     )

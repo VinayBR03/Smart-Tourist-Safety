@@ -20,6 +20,7 @@ build/
 # Docker
 # =============================
 *.log
+.zip
 
 # =============================
 # OS
@@ -34,3 +35,9 @@ htmlcov/
 coverage.xmlsecrets/
 *.env.docker
 celerybeat-schedule
+
+# =============================
+# SSL
+# =============================
+*.pem
+*.key

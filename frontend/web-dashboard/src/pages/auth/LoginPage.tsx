@@ -6,6 +6,7 @@ import { ShieldCheck, Mail, Lock, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
+import logo from '../../assets/logos/SentinelTour-logo.svg';
 
 // ─────────────────────────────────────────────
 // Types
@@ -66,8 +67,12 @@ export function LoginPage() {
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl p-8">
         {/* Logo + heading */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 mb-4 shadow-lg shadow-blue-600/30">
-            <ShieldCheck className="w-7 h-7 text-white" />
+          <div className="inline-flex items-center justify-center">
+            <img 
+              src={logo}
+              className="w-14 h-14"
+              alt="Sentinel Tour Logo" 
+            />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
             Sentinel Tour

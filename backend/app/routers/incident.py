@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_roles
@@ -16,7 +16,11 @@ from app.schemas.incident_schema import (
     IncidentResolveRequest,
     IncidentResponse,
     IncidentSummaryResponse,
-    IncidentTimelineEntry,
+)
+
+from app.schemas.incident_status_history_schema import (
+    IncidentStatusHistoryResponse,
+    IncidentTimelineResponse,
 )
 
 from app.core.exceptions import (
@@ -62,7 +66,7 @@ def create_new_incident(
     """
 
     try:
-        return create_incident(
+        incident=create_incident(
             db=db,
             tourist_id=current_user.id,
             description=payload.description,
@@ -72,6 +76,9 @@ def create_new_incident(
             zone_id=payload.zone_id,
             is_auto_generated=payload.is_auto_generated,
         )
+        db.commit()
+        db.refresh(incident)
+        return incident
 
     except ValidationError as e:
         raise HTTPException(
@@ -84,6 +91,39 @@ def create_new_incident(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
         )
+
+@router.get(
+    "/me",
+    response_model=List[IncidentSummaryResponse],
+    status_code=status.HTTP_200_OK,
+)
+def get_my_incidents(
+    limit: int = 50,
+    offset: int = 0,
+    status_filter: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.TOURIST)),
+):
+    """
+    Tourist fetches only their own incidents.
+    Supports pagination and optional status filtering.
+    """
+    from sqlalchemy import select, desc
+    from app.models.incident import Incident
+
+    stmt = (
+        select(Incident)
+        .where(Incident.tourist_id == current_user.id)
+        .order_by(desc(Incident.created_at))
+    )
+
+    if status_filter:
+        stmt = stmt.where(Incident.status == status_filter)
+
+    stmt = stmt.offset(offset).limit(min(limit, 100))
+
+    incidents = db.execute(stmt).scalars().all()
+    return incidents
 
 
 # =========================================================
@@ -177,12 +217,16 @@ def change_incident_status(
     """
 
     try:
-        return update_incident_status(
+        incident=update_incident_status(
             db=db,
             incident_id=incident_id,
             new_status=payload.status,
             performed_by=current_user.id,
         )
+        db.commit()
+        db.refresh(incident)
+        return incident
+
 
     except NotFoundError:
         raise HTTPException(
@@ -226,12 +270,17 @@ def resolve_existing_incident(
     """
 
     try:
-        return resolve_incident(
+        incident = resolve_incident(
             db=db,
             incident_id=incident_id,
             resolution_note=payload.resolution_note,
             performed_by=current_user.id,
         )
+
+        db.commit()
+        db.refresh(incident)
+        return incident
+
 
     except NotFoundError:
         raise HTTPException(
@@ -252,7 +301,7 @@ def resolve_existing_incident(
 
 @router.get(
     "/{incident_id}/timeline",
-    response_model=List[IncidentTimelineEntry],
+    response_model=List[IncidentTimelineResponse],
     status_code=status.HTTP_200_OK,
 )
 def fetch_timeline(
