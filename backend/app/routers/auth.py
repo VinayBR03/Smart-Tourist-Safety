@@ -38,6 +38,37 @@ router = APIRouter(
     tags=["Authentication"],
 )
 
+def _user_to_response(user: User) -> dict:
+    """Shared serializer — same shape as GET /auth/me"""
+    lang = user.preferred_language
+    if hasattr(lang, 'value'):
+        lang_str = lang.value
+    elif isinstance(lang, str):
+        lang_str = lang.lower()
+    else:
+        lang_str = "en"
+
+    return {
+        "id":                 user.id,
+        "email":              user.email,
+        "role":               user.role,
+        "is_active":          user.is_active,
+        "is_verified":        user.is_verified,
+        "full_name":          user.full_name,
+        "phone":              user.phone,
+        "nationality":        user.nationality,
+        "blood_group":        user.blood_group,
+        "medical_conditions": user.medical_conditions,
+        "allergies":          user.allergies,
+        "preferred_language": lang_str,
+        "gender":             user.gender,
+        "date_of_birth":      str(user.date_of_birth) if user.date_of_birth else None,
+        "emergency_contact":  user.emergency_contact,
+        "last_login":         user.last_login,
+        "created_at":         user.created_at,
+        "updated_at":         user.updated_at,
+    }
+
 # =========================================================
 # Register (Tourist Only)
 # =========================================================
@@ -194,7 +225,7 @@ def logout(
 def get_me(
     current_user: User = Depends(get_current_user),
 ):
-    return current_user
+    return _user_to_response(current_user)
 
 # =========================================================
 # Change Password

@@ -150,15 +150,16 @@ def update_my_profile(
             tourist_id=current_user.id,
             updates=payload,
         )
-        db.commit()
         db.refresh(updated)
-        return {"updated": True, "user_id": updated.id}
+        from app.routers.auth import _user_to_response
+        return _user_to_response(updated)
     except ValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Tourist not found.")
 
 # =========================================================
 # Get Profile Photo Key

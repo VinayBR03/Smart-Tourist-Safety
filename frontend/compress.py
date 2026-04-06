@@ -13,6 +13,8 @@ def zip_folder(folder_path, output_zip):
                 dirs.remove('node_modules')
             if '.git' in dirs:
                 dirs.remove('.git')
+            if '.pio' in dirs:
+                dirs.remove('.pio')
 
             for file in files:
                 # Build absolute file path
@@ -25,4 +27,4 @@ def zip_folder(folder_path, output_zip):
                 zipf.write(file_path, arcname)
 
 # Usage
-zip_folder('./web-dashboard', 'web-dashboard.zip')
+zip_folder('../backend/app', 'backend.zip')

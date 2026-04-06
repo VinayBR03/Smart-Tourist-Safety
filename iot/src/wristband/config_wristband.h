@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────
 // Device identity — change per unit at flash time
 // ─────────────────────────────────────────────
-static constexpr char WRISTBAND_DEVICE_ID[] = "WB001";  // CHANGE PER UNIT
+static constexpr char WRISTBAND_DEVICE_ID[] = "wb001";  // CHANGE PER UNIT
 
 // ─────────────────────────────────────────────
 // I2C bus — shared by MAX30102, MLX90614, GY-91

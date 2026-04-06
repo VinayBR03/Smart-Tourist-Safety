@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────
 // Device identity — CHANGE PER UNIT
 // ─────────────────────────────────────────────
-static constexpr char GATEWAY_DEVICE_ID[] = "GW001";
+static constexpr char GATEWAY_DEVICE_ID[] = "gw001";
 
 // ─────────────────────────────────────────────
 // Hardcoded GPS — surveyed at deploy time
@@ -18,8 +18,8 @@ static constexpr float GATEWAY_LONGITUDE  = 81.84630f;   // CHANGE PER UNIT
 // Store a copy of this file as config_gateway.example.h with dummy values.
 // Add config_gateway.h to .gitignore.
 // ─────────────────────────────────────────────
-static constexpr char BACKEND_BASE_URL[]  = "http://192.168.1.100:8000"; // CHANGE
-static constexpr char GATEWAY_API_KEY[]   = "REPLACE_WITH_ACTUAL_KEY";           // CHANGE
+static constexpr char BACKEND_BASE_URL[]  = "http://192.168.31.33:8000"; // CHANGE
+static constexpr char GATEWAY_API_KEY[]   = "bzX2vK8Iu66zg1CIpbPLK46_TIXPJTNMj_j0cxHlilIb83DjuZGyKx3H_DD0fxtL";           // CHANGE
 
 static constexpr char ENDPOINT_HEALTH[]    = "/iot/health";
 static constexpr char ENDPOINT_LOCATION[]  = "/iot/location";
@@ -28,8 +28,8 @@ static constexpr char ENDPOINT_HEARTBEAT[] = "/iot/heartbeat";
 // ─────────────────────────────────────────────
 // WiFi — CHANGE
 // ─────────────────────────────────────────────
-static constexpr char     WIFI_SSID[]                   = "REPLACE_SSID";  // CHANGE
-static constexpr char     WIFI_PASSWORD[]               = "REPLACE_PASS";  // CHANGE
+static constexpr char     WIFI_SSID[]                   = "AirFiber-ti0Gei 2";  // CHANGE
+static constexpr char     WIFI_PASSWORD[]               = "jai4oongei3euTha";  // CHANGE
 static constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS       = 15000;
 static constexpr uint32_t WIFI_RECONNECT_INTERVAL_MS    = 30000;
 

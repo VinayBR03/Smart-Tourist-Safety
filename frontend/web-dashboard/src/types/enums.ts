@@ -46,6 +46,7 @@ export enum DeviceStatus {
   DECOMMISSIONED= 'DECOMMISSIONED',
   MAINTENANCE   = 'MAINTENANCE',
   LOST          = 'LOST',
+ SYSTEM_MAINTENANCE = 'SYSTEM_MAINTENANCE', 
 }
 
 export enum RiskLevel {

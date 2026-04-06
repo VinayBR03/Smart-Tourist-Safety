@@ -203,9 +203,9 @@ class EntityType(str, Enum):
 # =========================================================
 
 class UserLanguage(str, Enum):
-    EN = "en"
-    HI = "hi"
-    KN = "kn"
-    TE = "te"
-    TA = "ta"
-    ML = "ml"
+    EN = "EN"
+    HI = "HI"
+    KN = "KN"
+    TE = "TE"
+    TA = "TA"
+    ML = "ML"
