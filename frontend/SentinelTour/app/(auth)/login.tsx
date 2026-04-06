@@ -35,6 +35,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function LoginScreen() {
+  const t = useThemedStyles();
   const { setUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [showPw,  setShowPw]  = useState(false);
@@ -86,15 +87,15 @@ export default function LoginScreen() {
           <View style={styles.header}>
             <Image source={logo} style={styles.logo} resizeMode="contain" />
             <Text style={styles.brandName}>SENTINEL TOUR</Text>
-            <Text style={styles.title}>Welcome back</Text>
-            <Text style={styles.subtitle}>Sign in to continue your safe journey</Text>
+            <Text style={[styles.title, t.textPrimary]}>Welcome back</Text>
+            <Text style={[styles.subtitle, t.textSecondary]}>Sign in to continue your safe journey</Text>
           </View>
 
           {/* Form */}
           <Animated.View style={[styles.form, shakeStyle]}>
             {/* Email */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Email Address</Text>
+              <Text style={[styles.label, t.textSecondary]}>Email Address</Text>
               <Controller
                 control={control} name="email"
                 render={({ field: { onChange, value, onBlur } }) => (
@@ -116,7 +117,7 @@ export default function LoginScreen() {
             {/* Password */}
             <View style={styles.fieldGroup}>
               <View style={styles.labelRow}>
-                <Text style={styles.label}>Password</Text>
+                <Text style={[styles.label, t.textSecondary]}>Password</Text>
               </View>
               <Controller
                 control={control} name="password"
@@ -164,7 +165,7 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </Animated.View>
 
-          <Text style={styles.footer}>Sentinel Tour · Tourist Safety System</Text>
+          <Text style={[styles.footer, t.textMuted]}>Sentinel Tour · Tourist Safety System</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

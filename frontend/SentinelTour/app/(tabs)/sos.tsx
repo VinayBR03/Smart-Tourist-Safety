@@ -135,6 +135,7 @@ function SOSButton({
 
 // ─── Main screen ──────────────────────────────────────────
 export default function SOSScreen() {
+  const t = useThemedStyles();
   const queryClient = useQueryClient();
 
   const [sosState,    setSOSState]    = useState<SOSState>('idle');
@@ -432,7 +433,7 @@ export default function SOSScreen() {
         {!isSent && (
           <Animated.View entering={FadeInDown.duration(400)} style={styles.instructionCard}>
             <Icon.Info size={18} color={Colors.primary} />
-            <Text style={styles.instructionText}>
+            <Text style={[styles.instructionText, t.textSecondary]}>
               {sosState === 'idle'
                 ? 'Press and hold the button for 3 seconds to send an emergency alert.'
                 : sosState === 'holding'
@@ -510,8 +511,8 @@ export default function SOSScreen() {
         {/* ── Description ───────────────────────────────── */}
         {!isSent && (
           <Animated.View entering={FadeInDown.duration(400).delay(160)} style={styles.section}>
-            <Text style={styles.sectionTitle}>Describe Your Emergency</Text>
-            <Text style={styles.sectionSub}>Optional — helps responders prepare</Text>
+            <Text style={[styles.sectionTitle, t.textPrimary]}>Describe Your Emergency</Text>
+            <Text style={[styles.sectionSub, t.textMuted]}>Optional — helps responders prepare</Text>
             <View style={[styles.textAreaWrap, t.surface, t.border]}>
               <TextInput
                 style={styles.textArea}
@@ -542,7 +543,7 @@ export default function SOSScreen() {
                 disabled={sosState !== 'idle'}
               >
                 <Icon.Camera size={22} color={Colors.textSecondary} />
-                <Text style={styles.mediaActionText}>Add Photo</Text>
+                <Text style={[styles.mediaActionText, t.textSecondary]}>Add Photo</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.mediaActionBtn}
@@ -580,7 +581,7 @@ export default function SOSScreen() {
           <Animated.View entering={FadeInDown.duration(400).delay(280)} style={[styles.emergencyInfo, t.surface, t.border]}>
             <View style={styles.emergencyInfoHeader}>
               <Icon.Phone size={16} color={Colors.textSecondary} />
-              <Text style={styles.emergencyInfoTitle}>Emergency Numbers</Text>
+              <Text style={[styles.emergencyInfoTitle, t.textSecondary]}>Emergency Numbers</Text>
             </View>
             <View style={styles.emergencyNumbers}>
               {[
@@ -590,8 +591,8 @@ export default function SOSScreen() {
                 { label: 'Disaster',  number: '112' },
               ].map((e) => (
                 <View key={e.label} style={styles.emergencyNumber}>
-                  <Text style={styles.emergencyNumberLabel}>{e.label}</Text>
-                  <Text style={styles.emergencyNumberValue}>{e.number}</Text>
+                  <Text style={[styles.emergencyNumberLabel, t.textMuted]}>{e.label}</Text>
+                  <Text style={[styles.emergencyNumberValue, t.textPrimary]}>{e.number}</Text>
                 </View>
               ))}
             </View>

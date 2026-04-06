@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/authStore';
 import { authApi } from '@/api/auth';
 import { Colors, Typography, Spacing } from '@/constants/theme';
 import { useThemedStyles } from '@/utils/themedStyles';
+import {i18n, normaliseLanguage} from '@/utils/i18n'
 
 const logo = require('../assets/logo.png');
 
@@ -40,6 +41,7 @@ export default function SplashPage() {
         try {
           const user = await authApi.me();
           setUser(user);
+          i18n.setLanguage(normaliseLanguage(user.preferred_language));
           router.replace('/(tabs)');
         } catch {
           router.replace('/(auth)/login');

@@ -75,14 +75,14 @@ function IncidentCard({ item, index }: { item: IncidentSummary; index: number })
           <View style={styles.cardBottom}>
             <View style={styles.cardMeta}>
               <Icon.Clock size={12} color={Colors.textMuted} />
-              <Text style={styles.cardMetaText}>
+              <Text style={[styles.cardMetaText, t.textMuted]}>
                 {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
               </Text>
             </View>
             {item.latitude && item.longitude && (
               <View style={styles.cardMeta}>
                 <Icon.MapPin size={12} color={Colors.textMuted} />
-                <Text style={styles.cardMetaText}>
+                <Text style={[styles.cardMetaText, t.textMuted]}>
                   {item.latitude.toFixed(4)}, {item.longitude.toFixed(4)}
                 </Text>
               </View>
@@ -110,6 +110,7 @@ function statusColor(status: IncidentStatus) {
 }
 
 export default function IncidentsScreen() {
+  const t = useThemedStyles();
   const [filter, setFilter] = useState<IncidentStatus | 'ALL'>('ALL');
 
   const { data = [], isLoading, refetch, isRefetching } = useQuery({
@@ -152,7 +153,7 @@ export default function IncidentsScreen() {
 
       {/* ── Count row ───────────────────────────────── */}
       <View style={styles.countRow}>
-        <Text style={styles.countText}>
+        <Text style={[styles.countText, t.textMuted]}>
           {filtered.length} {filtered.length === 1 ? 'incident' : 'incidents'}
         </Text>
         {filter !== 'ALL' && (
@@ -186,8 +187,8 @@ export default function IncidentsScreen() {
               <View style={styles.emptyIconWrap}>
                 <Icon.CheckCircle size={36} color={Colors.success} />
               </View>
-              <Text style={styles.emptyTitle}>No incidents found</Text>
-              <Text style={styles.emptySub}>
+              <Text style={[styles.emptyTitle, t.textPrimary]}>No incidents found</Text>
+              <Text style={[styles.emptySub, t.textMuted]}>
                 {filter === 'ALL'
                   ? 'You have not reported any incidents yet.'
                   : `No incidents with status "${filter.replace('_', ' ')}".`}

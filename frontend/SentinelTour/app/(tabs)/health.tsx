@@ -163,8 +163,8 @@ function MetricDetailCard({
               {icon}
             </View>
             <View>
-              <Text style={styles.metricLabel}>{label}</Text>
-              <Text style={styles.metricNormal}>Normal: {normal}</Text>
+              <Text style={[styles.metricLabel, t.textPrimary]}>{label}</Text>
+              <Text style={[styles.metricNormal, t.textMuted]}>Normal: {normal}</Text>
             </View>
           </View>
 
@@ -195,7 +195,7 @@ function MetricDetailCard({
         {expanded && history.length > 1 && (
           <Animated.View entering={FadeInDown.duration(300)} style={styles.chartWrap}>
             <View style={styles.chartHeader}>
-              <Text style={styles.chartTitle}>Last {history.length} readings</Text>
+              <Text style={[styles.chartTitle, t.textSecondary]}>Last {history.length} readings</Text>
               <Badge label="Live" variant="success" size="sm" dot />
             </View>
             <SparkLine data={history} color={color} />
@@ -214,6 +214,7 @@ function MetricDetailCard({
 
 // ─── Main screen ─────────────────────────────────────────
 export default function HealthScreen() {
+  const t = useThemedStyles();
   const { user }   = useAuthStore();
   const { device } = useDeviceStore();
 
@@ -255,8 +256,8 @@ export default function HealthScreen() {
               <View style={styles.deviceBannerLeft}>
                 <LivePulse color={Colors.success} />
                 <View>
-                  <Text style={styles.deviceBannerTitle}>Wristband Connected</Text>
-                  <Text style={styles.deviceBannerSub}>{device.name}</Text>
+                  <Text style={[styles.deviceBannerTitle, t.textPrimary]}>Wristband Connected</Text>
+                  <Text style={[styles.deviceBannerSub, t.textMuted]}>{device.name}</Text>
                 </View>
               </View>
               <View style={styles.batteryWrap}>
@@ -323,7 +324,7 @@ export default function HealthScreen() {
         {!isLoading && latest && (
           <View style={styles.metricsSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Live Vitals</Text>
+              <Text style={[styles.sectionTitle, t.textPrimary]}>Live Vitals</Text>
               <Badge label="LIVE" variant="success" size="sm" dot />
             </View>
 
@@ -380,8 +381,8 @@ export default function HealthScreen() {
             <View style={styles.noDataIconWrap}>
               <Icon.Activity size={36} color={Colors.textMuted} />
             </View>
-            <Text style={styles.noDataTitle}>No Health Data Yet</Text>
-            <Text style={styles.noDataSub}>
+            <Text style={[styles.noDataTitle, t.textPrimary]}>No Health Data Yet</Text>
+            <Text style={[styles.noDataSub, t.textMuted]}>
               Connect your wristband via Bluetooth to start receiving live health metrics.
             </Text>
           </Animated.View>
@@ -390,7 +391,7 @@ export default function HealthScreen() {
         {/* ── History stats ─────────────────────────────── */}
         {history.length > 0 && (
           <Animated.View entering={FadeInDown.duration(400).delay(400)} style={styles.statsSection}>
-            <Text style={styles.sectionTitle}>Session Stats</Text>
+            <Text style={[styles.sectionTitle, t.textPrimary]}>Session Stats</Text>
             <View style={styles.statsGrid}>
               <StatBox label="Readings" value={String(history.length)} color={Colors.primary} />
               <StatBox
@@ -430,7 +431,7 @@ function StatBox({ label, value, color, unit }: { label: string; value: string; 
         <Text style={[styles.statValue, { color }]}>{value}</Text>
         {unit && <Text style={[styles.statUnit, { color }]}>{unit}</Text>}
       </View>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={[styles.statLabel, t.textMuted]}>{label}</Text>
     </View>
   );
 }

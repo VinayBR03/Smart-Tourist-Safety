@@ -32,6 +32,7 @@ function getGreeting() {
 }
 
 export default function HomeScreen() {
+  const t = useThemedStyles();
   const { user }   = useAuthStore();
   const { device } = useDeviceStore();
 
@@ -86,19 +87,19 @@ export default function HomeScreen() {
         {/* ── Greeting ────────────────────────────────── */}
         <Animated.View entering={FadeInDown.duration(400)} style={styles.hero}>
           <View>
-            <Text style={styles.greeting}>{getGreeting()},</Text>
-            <Text style={styles.name}>{firstName}</Text>
+            <Text style={[styles.greeting, t.textSecondary]}>{getGreeting()},</Text>
+            <Text style={[styles.name, t.textPrimary]}>{firstName}</Text>
           </View>
           <View style={styles.heroMeta}>
-            <Text style={styles.date}>{format(new Date(), 'EEE, MMM d')}</Text>
+            <Text style={[styles.date, t.textMuted]}>{format(new Date(), 'EEE, MMM d')}</Text>
             {device?.isConnected ? (
               <View style={styles.devicePill}>
                 <View style={styles.deviceDot} />
-                <Text style={styles.devicePillText}>Wristband Active</Text>
+                <Text style={[styles.devicePillText, t.textPrimary]}>Wristband Active</Text>
               </View>
             ) : (
               <TouchableOpacity style={styles.connectPill} onPress={() => router.push('/devices')}>
-                <Text style={styles.connectPillText}>Connect Wristband</Text>
+                <Text style={[styles.connectPillText, t.textPrimary]}>Connect Wristband</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -226,10 +227,10 @@ export default function HomeScreen() {
 function SectionHeader({ title, actionLabel, onAction }: { title: string; actionLabel?: string; onAction?: () => void }) {
   return (
     <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text style={[styles.sectionTitle, t.textPrimary]}>{title}</Text>
       {actionLabel && onAction && (
         <TouchableOpacity onPress={onAction} style={styles.sectionActionBtn}>
-          <Text style={styles.sectionAction}>{actionLabel}</Text>
+          <Text style={[styles.sectionAction, t.textPrimColor]}>{actionLabel}</Text>
           <Icon.ChevronRight size={14} color={Colors.primary} />
         </TouchableOpacity>
       )}
@@ -248,8 +249,8 @@ function ZoneCard({ zone, index }: { zone: ZoneWithStatus; index: number }) {
         <View style={[styles.zoneAccent, { backgroundColor: riskColors[risk] }]} />
         <View style={styles.zoneCardContent}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.zoneName} numberOfLines={1}>{zone.name}</Text>
-            <Text style={styles.zoneType}>{zone.zone_type}</Text>
+            <Text style={[styles.zoneName, t.textPrimary]} numberOfLines={1}>{zone.name}</Text>
+            <Text style={[styles.zoneType, t.textMuted]}>{zone.zone_type}</Text>
           </View>
           <View style={styles.zoneRight}>
             <Badge label={risk} variant={riskVariant(risk)} size="sm" dot />
@@ -280,10 +281,10 @@ function IncidentRow({ incident, index }: { incident: IncidentSummary; index: nu
       >
         <View style={[styles.incidentDot, { backgroundColor: statusColors[incident.status] ?? Colors.textMuted }]} />
         <View style={{ flex: 1 }}>
-          <Text style={styles.incidentDesc} numberOfLines={1}>
+          <Text style={[styles.incidentDesc, t.textPrimary]} numberOfLines={1}>
             {incident.description ?? `Incident #${incident.id}`}
           </Text>
-          <Text style={styles.incidentMeta}>
+          <Text style={[styles.incidentMeta, t.textMuted]}>
             {incident.source} · {formatDistanceToNow(new Date(incident.created_at), { addSuffix: true })}
           </Text>
         </View>
@@ -303,7 +304,7 @@ function QuickAction({ icon, label, color, onPress }: { icon: React.ReactNode; l
       <View style={[styles.quickActionIcon, { backgroundColor: `${color}18`, borderColor: `${color}30` }]}>
         {icon}
       </View>
-      <Text style={styles.quickActionLabel}>{label}</Text>
+      <Text style={[styles.quickActionLabel, t.textSecondary]}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -312,7 +313,7 @@ function NoDataCard({ icon, message, action }: { icon: React.ReactNode; message:
   return (
     <Card style={styles.noData}>
       <View style={styles.noDataIcon}>{icon}</View>
-      <Text style={styles.noDataText}>{message}</Text>
+      <Text style={[styles.noDataText, t.textMuted]}>{message}</Text>
       {action && (
         <TouchableOpacity style={styles.noDataBtn} onPress={action.onPress}>
           <Text style={styles.noDataBtnText}>{action.label}</Text>

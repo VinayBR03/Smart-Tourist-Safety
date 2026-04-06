@@ -59,12 +59,12 @@ function TimelineStep({
             variant={incidentVariant(entry.status as IncidentStatus)}
             size="sm"
           />
-          <Text style={styles.timelineTime}>
+          <Text style={[styles.timelineTime, t.textMuted]}>
             {format(new Date(entry.changed_at), 'MMM d, HH:mm')}
           </Text>
         </View>
         {entry.note && (
-          <Text style={styles.timelineNote}>{entry.note}</Text>
+          <Text style={[styles.timelineNote, t.textSecondary]}>{entry.note}</Text>
         )}
       </View>
     </Animated.View>
@@ -76,14 +76,15 @@ function InfoRow({ label, value, icon }: { label: string; value: string; icon: R
     <View style={styles.infoRow}>
       <View style={styles.infoIcon}>{icon}</View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.infoLabel}>{label}</Text>
-        <Text style={styles.infoValue}>{value}</Text>
+        <Text style={[styles.infoLabel, t.textPrimColor]}>{label}</Text>
+        <Text style={[styles.infoValue, t.textMuted]}>{value}</Text>
       </View>
     </View>
   );
 }
 
 export default function IncidentDetailScreen() {
+  const t = useThemedStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
   const incidentId = parseInt(id, 10);
 
@@ -143,14 +144,14 @@ export default function IncidentDetailScreen() {
                 label={incident.status.replace('_', ' ')}
                 variant={incidentVariant(incident.status)}
               />
-              <Text style={styles.incidentId}>#{incident.id}</Text>
+              <Text style={[styles.incidentId, t.textPrimary]}>#{incident.id}</Text>
             </View>
-            <Text style={styles.incidentDesc}>
+            <Text style={[styles.incidentDesc, t.textPrimary]}>
               {incident.description ?? 'No description provided'}
             </Text>
             <View style={styles.incidentMeta}>
               <Icon.Clock size={13} color={Colors.textMuted} />
-              <Text style={styles.incidentMetaText}>
+              <Text style={[styles.incidentMetaText, t.textMuted]}>
                 Reported {formatDistanceToNow(new Date(incident.created_at), { addSuffix: true })}
               </Text>
             </View>
@@ -159,7 +160,7 @@ export default function IncidentDetailScreen() {
 
         {/* ── Info grid ────────────────────────────────── */}
         <Animated.View entering={FadeInDown.duration(400).delay(80)}>
-          <Text style={styles.sectionTitle}>Details</Text>
+          <Text style={[styles.sectionTitle, t.textPrimary]}>Details</Text>
           <Card>
             <InfoRow
               label="Source"
@@ -203,7 +204,7 @@ export default function IncidentDetailScreen() {
 
         {/* ── Timeline ─────────────────────────────────── */}
         <Animated.View entering={FadeInDown.duration(400).delay(160)}>
-          <Text style={styles.sectionTitle}>Status Timeline</Text>
+          <Text style={[styles.sectionTitle, t.textMuted]}>Status Timeline</Text>
           <Card>
             {timeline.length === 0 ? (
               <Text style={styles.noTimeline}>No status updates yet.</Text>

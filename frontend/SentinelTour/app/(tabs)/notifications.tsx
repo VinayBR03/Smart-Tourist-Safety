@@ -93,19 +93,19 @@ function NotificationRow({
         <View style={styles.notifContent}>
           <View style={styles.notifTitleRow}>
             <Text
-              style={[styles.notifTitle, isUnread && styles.notifTitleUnread]}
+              style={[styles.notifTitle, t.textSecondary, isUnread && styles.notifTitleUnread]}
               numberOfLines={1}
             >
               {item.title}
             </Text>
             {isUnread && <View style={styles.unreadDot} />}
           </View>
-          <Text style={styles.notifBody} numberOfLines={2}>
+          <Text style={[styles.notifBody, t.textMuted]} numberOfLines={2}>
             {item.body}
           </Text>
           <View style={styles.notifMeta}>
             <Icon.Clock size={11} color={Colors.textMuted} />
-            <Text style={styles.notifTime}>
+            <Text style={[styles.notifTime, t.textMuted]}>
               {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
             </Text>
             <Badge
@@ -130,8 +130,8 @@ function EmptyState() {
       <View style={styles.emptyIconWrap}>
         <Icon.Bell size={36} color={Colors.textMuted} />
       </View>
-      <Text style={styles.emptyTitle}>All caught up</Text>
-      <Text style={styles.emptySub}>
+      <Text style={[styles.emptyTitle, t.textPrimary]}>All caught up</Text>
+      <Text style={[styles.emptySub, t.textMuted]}>
         No notifications yet. We will alert you of any safety updates or health events.
       </Text>
     </Animated.View>
@@ -140,6 +140,7 @@ function EmptyState() {
 
 // ─── Main screen ──────────────────────────────────────────
 export default function NotificationsScreen() {
+  const t = useThemedStyles();
   const queryClient = useQueryClient();
   const { setUnreadCount } = useNotificationStore();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
@@ -190,7 +191,7 @@ export default function NotificationsScreen() {
       <Header title="Notifications" />
 
       {/* ── Filter + mark all row ────────────────────── */}
-      <View style={[styles.toolbar, t.bg, t.border]}>
+      <View style={[styles.toolbar, t.bg, { borderBottomColor: t.C.border, borderBottomWidth: 1 }]}>
         <View style={styles.filterPills}>
           {(['all', 'unread'] as const).map((f) => (
             <TouchableOpacity
@@ -198,7 +199,7 @@ export default function NotificationsScreen() {
               style={[styles.filterPill, t.surface, t.border,filter === f && styles.filterPillActive]}
               onPress={() => setFilter(f)}
             >
-              <Text style={[styles.filterPillText, filter === f && styles.filterPillTextActive]}>
+              <Text style={[styles.filterPillText, t.textMuted, filter === f && styles.filterPillTextActive]}>
                 {f === 'all' ? 'All' : `Unread${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
               </Text>
             </TouchableOpacity>
@@ -239,7 +240,7 @@ export default function NotificationsScreen() {
             if (item.type === 'header') {
               return (
                 <View style={styles.dateHeader}>
-                  <Text style={styles.dateHeaderText}>{item.title}</Text>
+                  <Text style={[styles.dateHeaderText, t.textMuted]}>{item.title}</Text>
                 </View>
               );
             }

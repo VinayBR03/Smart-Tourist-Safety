@@ -55,6 +55,7 @@ const INDIA_REGION: Region = {
 };
 
 export default function MapScreen() {
+  const t = useThemedStyles();
   const mapRef = useRef<MapView>(null);
 
   const [searchQuery, setSearchQuery]   = useState('');
@@ -232,10 +233,10 @@ export default function MapScreen() {
                   <Icon.MapPin size={14} color={Colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.dropdownTitle} numberOfLines={1}>
+                  <Text style={[styles.dropdownTitle, t.textPrimary]} numberOfLines={1}>
                     {item.display_name.split(',')[0]}
                   </Text>
-                  <Text style={styles.dropdownSub} numberOfLines={1}>
+                  <Text style={[styles.dropdownSub, t.textMuted]} numberOfLines={1}>
                     {item.display_name.split(',').slice(1, 3).join(',')}
                   </Text>
                 </View>
@@ -250,11 +251,11 @@ export default function MapScreen() {
       {/* ── Zone legend ───────────────────────────────── */}
       {showZoneLegend && (
         <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)} style={[styles.legend, t.surface, t.border]}>
-          <Text style={styles.legendTitle}>Zone Risk Levels</Text>
+          <Text style={[styles.legendTitle, t.textSecondary]}>Zone Risk Levels</Text>
           {(['LOW', 'MEDIUM', 'HIGH'] as RiskLevel[]).map((level) => (
             <View key={level} style={styles.legendRow}>
               <View style={[styles.legendSwatch, { backgroundColor: ZONE_COLORS[level].stroke }]} />
-              <Text style={styles.legendLabel}>{level}</Text>
+              <Text style={[styles.legendLabel, t.textSecondary]}>{level}</Text>
             </View>
           ))}
         </Animated.View>
@@ -344,10 +345,10 @@ export default function MapScreen() {
                 <Icon.MapPin size={20} color={Colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.sheetTitle} numberOfLines={2}>
+                <Text style={[styles.sheetTitle, t.textPrimary]} numberOfLines={2}>
                   {selectedResult.display_name.split(',')[0]}
                 </Text>
-                <Text style={styles.sheetAddress} numberOfLines={1}>
+                <Text style={[styles.sheetAddress, t.textMuted]} numberOfLines={1}>
                   {selectedResult.display_name.split(',').slice(1, 4).join(', ')}
                 </Text>
               </View>
@@ -359,22 +360,22 @@ export default function MapScreen() {
             {/* Coordinates row */}
             <View style={styles.coordRow}>
               <View style={styles.coordItem}>
-                <Text style={styles.coordLabel}>Latitude</Text>
-                <Text style={styles.coordValue}>
+                <Text style={[styles.coordLabel, t.textMuted]}>Latitude</Text>
+                <Text style={[styles.coordValue, t.textPrimary]}>
                   {parseFloat(selectedResult.lat).toFixed(5)}
                 </Text>
               </View>
               <View style={styles.coordDivider} />
               <View style={styles.coordItem}>
-                <Text style={styles.coordLabel}>Longitude</Text>
-                <Text style={styles.coordValue}>
+                <Text style={[styles.coordLabel, t.textMuted]}>Longitude</Text>
+                <Text style={[styles.coordValue, t.textPrimary]}>
                   {parseFloat(selectedResult.lon).toFixed(5)}
                 </Text>
               </View>
               <View style={styles.coordDivider} />
               <View style={styles.coordItem}>
-                <Text style={styles.coordLabel}>Type</Text>
-                <Text style={styles.coordValue} numberOfLines={1}>
+                <Text style={[styles.coordLabel, t.textMuted]}>Type</Text>
+                <Text style={[styles.coordValue, t.textPrimary]} numberOfLines={1}>
                   {selectedResult.type}
                 </Text>
               </View>
@@ -383,7 +384,7 @@ export default function MapScreen() {
             {/* Zone risk in vicinity */}
             {zones && zones.length > 0 && (
               <View style={styles.nearbyZones}>
-                <Text style={styles.nearbyZonesTitle}>Zones in area</Text>
+                <Text style={[styles.nearbyZonesTitle, t.textSecondary]}>Zones in area</Text>
                 <View style={styles.nearbyZonesRow}>
                   {zones.slice(0, 3).map((z) => (
                     <Badge

@@ -29,6 +29,10 @@ import { useAuthStore } from '@/store/authStore';
 import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 import type { UserLanguage } from '@/types/api';
 import { wsClient } from '@/utils/websocket';
+import { useThemedStyles } from '@/utils/themedStyles';
+import { useTheme } from '@react-navigation/native';
+
+const t = useThemedStyles()
 
 // ─── Step schemas ─────────────────────────────────────────
 const step1Schema = z.object({
@@ -71,6 +75,7 @@ const GENDERS = ['Male', 'Female', 'Other', 'Prefer not to say'];
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-', 'Unknown'];
 
 export default function RegisterScreen() {
+  const t = useThemedStyles();
   const { language } = useLocalSearchParams<{ language: UserLanguage }>();
   const { setUser } = useAuthStore();
 
@@ -160,7 +165,7 @@ export default function RegisterScreen() {
   const exitAnim = goingBack ? FadeOutRight : FadeOutLeft;
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, t.bg]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -253,8 +258,8 @@ function StepHeader({ step, title, subtitle }: { step: number; title: string; su
   return (
     <View style={styles.stepHeader}>
       <Text style={styles.stepLabel}>Step {step} of 3</Text>
-      <Text style={styles.stepTitle}>{title}</Text>
-      <Text style={styles.stepSubtitle}>{subtitle}</Text>
+      <Text style={[styles.stepTitle, t.textPrimary]}>{title}</Text>
+      <Text style={[styles.stepSubtitle, t.textSecondary]}>{subtitle}</Text>
     </View>
   );
 }
@@ -271,7 +276,7 @@ function Field({
 }) {
   return (
     <View style={styles.fieldGroup}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, t.textSecondary]}>{label}</Text>
       {children}
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
@@ -300,7 +305,7 @@ function InputBox({
   rightEl?: React.ReactNode;
 }) {
   return (
-    <View style={[styles.inputWrapper, error && styles.inputError]}>
+    <View style={[styles.inputWrapper, error && styles.inputError, t.surface, t.border]}>
       <TextInput
         style={styles.input}
         value={value}

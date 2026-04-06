@@ -25,6 +25,7 @@ const LANGUAGES: { code: UserLanguage; label: string; native: string; flag: stri
 ];
 
 export default function LanguageSelectScreen() {
+  const t = useThemedStyles();
   const [selected, setSelected] = useState<UserLanguage>('en');
 
   const handleSelect = (code: UserLanguage) => {
@@ -47,8 +48,8 @@ export default function LanguageSelectScreen() {
           <View style={styles.icon}>
             <Text style={styles.iconText}>🌐</Text>
           </View>
-          <Text style={styles.title}>Choose Your Language</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.title, t.textPrimary]}>Choose Your Language</Text>
+          <Text style={[styles.subtitle, t.textSecondary]}>
             You can change this anytime in Settings
           </Text>
         </Animated.View>
@@ -114,10 +115,10 @@ function LanguageCard({
       >
         {isSelected && <View style={styles.selectedDot} />}
         <Text style={styles.langFlag}>{lang.flag}</Text>
-        <Text style={[styles.langNative, isSelected && styles.langNativeSelected]}>
+        <Text style={[styles.langNative, isSelected && styles.langNativeSelected, t.textPrimary]}>
           {lang.native}
         </Text>
-        <Text style={[styles.langLabel, isSelected && styles.langLabelSelected]}>
+        <Text style={[styles.langLabel, isSelected && styles.langLabelSelected, t.textSecondary]}>
           {lang.label}
         </Text>
       </TouchableOpacity>

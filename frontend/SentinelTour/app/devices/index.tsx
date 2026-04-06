@@ -105,10 +105,12 @@ function DeviceRow({
             <Icon.Bluetooth size={20} color={Colors.primary} />
           </View>
           <View>
-            <Text style={styles.deviceRowName}>{device.name ?? 'Sentinel Wristband'}</Text>
-            <Text style={styles.deviceRowId} numberOfLines={1}>{device.id}</Text>
+            <Text style={[styles.deviceRowName, t.textPrimary]}>{device.name ?? 'Sentinel Wristband'}</Text>
+            <Text style={[styles.deviceRowId, t.textMuted]} numberOfLines={1}>
+              {device.id}
+            </Text>
             {device.rssi != null && (
-              <Text style={styles.deviceRowRssi}>Signal: {device.rssi} dBm</Text>
+              <Text style={[styles.deviceRowRssi, t.textMuted]}>Signal: {device.rssi} dBm</Text>
             )}
           </View>
         </View>
@@ -116,7 +118,7 @@ function DeviceRow({
           <ActivityIndicator size="small" color={Colors.primary} />
         ) : (
           <View style={styles.connectChip}>
-            <Text style={styles.connectChipText}>Connect</Text>
+            <Text style={[styles.connectChipText, t.textPrimary]}>Connect</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -201,7 +203,7 @@ function ConnectedDeviceCard({ onDisconnect }: { onDisconnect: () => void }) {
         {device.lastSeen && (
           <View style={styles.lastSeen}>
             <Icon.Clock size={12} color={Colors.textMuted} />
-            <Text style={styles.lastSeenText}>
+            <Text style={[styles.lastSeenText, t.textMuted]}>
               Last reading: {formatDistanceToNow(device.lastSeen, { addSuffix: true })}
             </Text>
           </View>
@@ -223,6 +225,8 @@ function MetricMini({ label, value, icon, color }: { label: string; value: strin
 
 // ─── Main screen ──────────────────────────────────────────
 export default function DevicesScreen() {
+
+  const t = useThemedStyles();
   const { device: connectedDevice, isScanning } = useDeviceStore();
 
   const [discovered,  setDiscovered]  = useState<Device[]>([]);
@@ -313,10 +317,10 @@ export default function DevicesScreen() {
               {isScanning ? (
                 <>
                   <ScanningAnimation />
-                  <Text style={styles.scanTitle}>Searching for wristbands...</Text>
-                  <Text style={styles.scanSub}>Make sure your wristband is powered on and nearby.</Text>
+                  <Text style={[styles.scanTitle, t.textPrimary]}>Searching for wristbands...</Text>
+                  <Text style={[styles.scanSub, t.textMuted]}>Make sure your wristband is powered on and nearby.</Text>
                   <TouchableOpacity style={styles.stopScanBtn} onPress={() => stopScan?.()}>
-                    <Text style={styles.stopScanText}>Stop Scanning</Text>
+                    <Text style={[styles.stopScanText, t.textPrimary]}>Stop Scanning</Text>
                   </TouchableOpacity>
                 </>
               ) : (
@@ -324,13 +328,13 @@ export default function DevicesScreen() {
                   <View style={styles.notConnectedIcon}>
                     <Icon.Bluetooth size={36} color={Colors.textMuted} />
                   </View>
-                  <Text style={styles.scanTitle}>No wristband connected</Text>
-                  <Text style={styles.scanSub}>
+                  <Text style={[styles.scanTitle, t.textPrimary]}>No wristband connected</Text>
+                  <Text style={[styles.scanSub, t.textMuted]}>
                     Tap the button below to scan for your Sentinel wristband via Bluetooth.
                   </Text>
                   <TouchableOpacity style={styles.scanBtn} onPress={startScan} activeOpacity={0.85}>
                     <Icon.RefreshCw size={18} color="#fff" />
-                    <Text style={styles.scanBtnText}>Start Scanning</Text>
+                    <Text style={[styles.scanBtnText, t.textPrimary]}>Start Scanning</Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -339,7 +343,7 @@ export default function DevicesScreen() {
               {bleError && (
                 <View style={styles.bleError}>
                   <Icon.AlertTriangle size={14} color={Colors.error} />
-                  <Text style={styles.bleErrorText}>{bleError}</Text>
+                  <Text style={[styles.bleErrorText, t.textPrimary]}>{bleError}</Text>
                 </View>
               )}
             </Card>
@@ -375,12 +379,12 @@ export default function DevicesScreen() {
                 {i > 0 && <View style={styles.rowDivider} />}
                 <View style={styles.guideStep}>
                   <View style={styles.guideStepNum}>
-                    <Text style={styles.guideStepNumText}>{i + 1}</Text>
+                    <Text style={[styles.guideStepNumText, t.textPrimary]}>{i + 1}</Text>
                   </View>
                   <View style={styles.guideStepIcon}>{step.icon}</View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.guideStepTitle}>{step.title}</Text>
-                    <Text style={styles.guideStepDesc}>{step.desc}</Text>
+                    <Text style={[styles.guideStepTitle, t.textPrimary]}>{step.title}</Text>
+                    <Text style={[styles.guideStepDesc, t.textMuted]}>{step.desc}</Text>
                   </View>
                 </View>
               </View>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { use, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ScrollView, Alert, TextInput, ActivityIndicator, Switch,
@@ -42,10 +42,10 @@ function SettingRow({ icon, label, subtitle, onPress, danger, rightEl }: {
       activeOpacity={onPress ? 0.75 : 1}
       disabled={!onPress && !rightEl}
     >
-      <View style={[styles.settingRowIcon, danger && styles.settingRowIconDanger]}>{icon}</View>
+      <View style={[styles.settingRowIcon, danger && styles.settingRowIconDanger, t.surfaceAlt]}>{icon}</View>
       <View style={styles.settingRowContent}>
-        <Text style={[styles.settingRowLabel, danger && styles.settingRowLabelDanger]}>{label}</Text>
-        {subtitle && <Text style={styles.settingRowSub}>{subtitle}</Text>}
+        <Text style={[styles.settingRowLabel, t.textPrimary, danger && styles.settingRowLabelDanger]}>{label}</Text>
+        {subtitle && <Text style={[styles.settingRowSub, t.textMuted]}>{subtitle}</Text>}
       </View>
       {rightEl ?? (onPress && <Icon.ChevronRight size={18} color={Colors.textMuted} />)}
     </TouchableOpacity>
@@ -53,7 +53,7 @@ function SettingRow({ icon, label, subtitle, onPress, danger, rightEl }: {
 }
 
 function SectionHeader({ title }: { title: string }) {
-  return <Text style={styles.sectionHeader}>{title}</Text>;
+  return <Text style={[styles.sectionHeader, t.textMuted]}>{title}</Text>;
 }
 
 function RowDivider() {
@@ -80,14 +80,14 @@ function ChangePasswordSheet({ onClose }: { onClose: () => void }) {
   return (
     <View style={[styles.root, t.surfaceAlt, t.border]}>
       <View style={styles.sheetHandle} />
-      <Text style={styles.sheetTitle}>Change Password</Text>
+      <Text style={[styles.sheetTitle, t.textPrimary]}>Change Password</Text>
       {[
         { label: 'Current Password', value: current, onChange: setCurrent },
         { label: 'New Password',     value: next,    onChange: setNext    },
         { label: 'Confirm Password', value: confirm, onChange: setConfirm },
       ].map((f) => (
         <View key={f.label} style={styles.sheetField}>
-          <Text style={styles.sheetFieldLabel}>{f.label}</Text>
+          <Text style={[styles.sheetFieldLabel, t.textSecondary]}>{f.label}</Text>
           <View style={[styles.sheetInput, t.surface, t.border]}>
             <TextInput
               style={styles.sheetInputText}
@@ -105,7 +105,7 @@ function ChangePasswordSheet({ onClose }: { onClose: () => void }) {
       </TouchableOpacity>
       <View style={styles.sheetActions}>
         <TouchableOpacity style={styles.sheetCancelBtn} onPress={onClose}>
-          <Text style={styles.sheetCancelText}>Cancel</Text>
+          <Text style={[styles.sheetCancelText, t.textSecondary]}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.sheetSubmitBtn, mutation.isPending && styles.btnDisabled]}
@@ -130,8 +130,8 @@ function LanguagePicker({ current, onSelect }: { current: UserLanguage; onSelect
           style={[styles.langChip, current === lang.code && styles.langChipActive]}
           onPress={() => onSelect(lang.code)}
         >
-          <Text style={[styles.langChipNative, current === lang.code && styles.langChipActiveText]}>{lang.native}</Text>
-          <Text style={[styles.langChipLabel,  current === lang.code && styles.langChipActiveText]}>{lang.label}</Text>
+          <Text style={[styles.langChipNative, current === lang.code && styles.langChipActiveText, t.textPrimary]}>{lang.native}</Text>
+          <Text style={[styles.langChipLabel,  current === lang.code && styles.langChipActiveText, t.textMuted]}>{lang.label}</Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -139,6 +139,7 @@ function LanguagePicker({ current, onSelect }: { current: UserLanguage; onSelect
 }
 
 export default function SettingsScreen() {
+  const t = useThemedStyles();
   const { C } = useTheme();
   const { user, logout, setUser } = useAuthStore();
   const { theme, toggle: toggleTheme } = useThemeStore();
@@ -150,14 +151,17 @@ export default function SettingsScreen() {
   const currentLang = (user?.preferred_language ?? 'en') as UserLanguage;
 
   const langMutation = useMutation({
-    mutationFn: (lang: UserLanguage) => authApi.updateProfile({ preferred_language: lang }),
-    onSuccess: (_data, lang) => {
+    mutationFn: async (lang: UserLanguage) =>{
+      await authApi.updateProfile({ preferred_language: lang });
+      return authApi.me();
+    },
+    onSuccess: (updatedUser, lang) => {
       i18n.setLanguage(lang);
-      if (user) setUser({ ...user, preferred_language: lang });
+      setUser(updatedUser);
       setShowLangPicker(false);
     },
     onError: (err: any) => {
-      Alert.alert('Error', 'Could not update language.');
+      Alert.alert('Error', `Could not update language: ${err?.response?.data?.detail ?? err?.message}`);
     },
   });
 
@@ -212,9 +216,9 @@ export default function SettingsScreen() {
           >
             <Avatar name={user?.full_name} size={56} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.profileName}>{user?.full_name ?? 'Tourist'}</Text>
-              <Text style={styles.profileEmail}>{user?.email}</Text>
-              <Text style={styles.profileEdit}>Tap to edit profile</Text>
+              <Text style={[styles.profileName, t.textPrimary]}>{user?.full_name ?? 'Tourist'}</Text>
+              <Text style={[styles.profileEmail, t.textMuted]}>{user?.email}</Text>
+              <Text style={[styles.profileEdit, t.textSecondary]}>Tap to edit profile</Text>
             </View>
             <Icon.Edit size={18} color={Colors.primary} />
           </TouchableOpacity>

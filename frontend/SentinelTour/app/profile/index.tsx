@@ -25,7 +25,7 @@ const GENDERS      = ['Male', 'Female', 'Other', 'Prefer not to say'];
 const t            = useThemedStyles();
 
 function SectionLabel({ title }: { title: string }) {
-  return <Text style={styles.sectionLabel}>{title}</Text>;
+  return <Text style={[styles.sectionLabel, t.textMuted]}>{title}</Text>;
 }
 
 function InfoRow({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
@@ -33,8 +33,8 @@ function InfoRow({ label, value, icon }: { label: string; value: string; icon: R
     <View style={styles.infoRow}>
       <View style={styles.infoIcon}>{icon}</View>
       <View style={styles.infoContent}>
-        <Text style={styles.infoLabel}>{label}</Text>
-        <Text style={styles.infoValue} numberOfLines={2}>{value || '—'}</Text>
+        <Text style={[styles.infoLabel, t.textMuted]}>{label}</Text>
+        <Text style={[styles.infoValue, t.textPrimary]} numberOfLines={2}>{value || '—'}</Text>
       </View>
     </View>
   );
@@ -48,8 +48,8 @@ function EditableField({
 }) {
   return (
     <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <View style={[styles.fieldInput, t.surfaceAlt, t.bg, multiline && { height: 88, alignItems: 'flex-start', paddingTop: Spacing.sm }]}>
+      <Text style={[styles.fieldLabel, t.textSecondary]}>{label}</Text>
+      <View style={[styles.fieldInput,t.border , t.surfaceAlt, t.bg, multiline && { height: 88, alignItems: 'flex-start', paddingTop: Spacing.sm }]}>
         <View style={styles.fieldIcon}>{icon}</View>
         <TextInput
           style={[styles.fieldText, multiline && styles.fieldTextMulti]}
@@ -84,6 +84,7 @@ function ChipRow({ options, value, onChange }: { options: string[]; value: strin
 }
 
 export default function ProfileScreen() {
+  const t = useThemedStyles();
   const { user, setUser }       = useAuthStore();
   const queryClient             = useQueryClient();
   const { edit: editParam }     = useLocalSearchParams<{ edit?: string }>();
@@ -96,13 +97,23 @@ export default function ProfileScreen() {
     full_name:          user?.full_name          ?? '',
     phone:              user?.phone              ?? '',
     gender:             user?.gender             ?? '',
-    date_of_birth:      user?.date_of_birth      ?? '',
+    date_of_birth:      user?.date_of_birth      ? user.date_of_birth.split('T')[0] : '',
     nationality:        user?.nationality        ?? '',
     emergency_contact:  user?.emergency_contact  ?? '',
     blood_group:        user?.blood_group        ?? '',
     medical_conditions: user?.medical_conditions ?? '',
     allergies:          user?.allergies          ?? '',
   });
+
+  const setFullName         = (v: string) => setForm((p) => ({ ...p, full_name:          v }));
+  const setPhone            = (v: string) => setForm((p) => ({ ...p, phone:              v }));
+  const setGender           = (v: string) => setForm((p) => ({ ...p, gender:             v }));
+  const setDateOfBirth      = (v: string) => setForm((p) => ({ ...p, date_of_birth:      v }));
+  const setNationality      = (v: string) => setForm((p) => ({ ...p, nationality:        v }));
+  const setEmergencyContact = (v: string) => setForm((p) => ({ ...p, emergency_contact:  v }));
+  const setBloodGroup       = (v: string) => setForm((p) => ({ ...p, blood_group:        v }));
+  const setMedicalConditions= (v: string) => setForm((p) => ({ ...p, medical_conditions: v }));
+  const setAllergies        = (v: string) => setForm((p) => ({ ...p, allergies:          v }));
 
   const set = (key: keyof typeof form) => (value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -192,7 +203,7 @@ export default function ProfileScreen() {
       full_name:          user?.full_name          ?? '',
       phone:              user?.phone              ?? '',
       gender:             user?.gender             ?? '',
-      date_of_birth:      user?.date_of_birth      ?? '',
+      date_of_birth:      user?.date_of_birth      ? user.date_of_birth.split('T')[0] : '',
       nationality:        user?.nationality        ?? '',
       emergency_contact:  user?.emergency_contact  ?? '',
       blood_group:        user?.blood_group        ?? '',
@@ -265,8 +276,8 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
           <View style={styles.avatarMeta}>
-            <Text style={styles.avatarName}>{user?.full_name ?? 'Tourist'}</Text>
-            <Text style={styles.avatarEmail}>{user?.email}</Text>
+            <Text style={[styles.avatarName, t.textPrimary]}>{user?.full_name ?? 'Tourist'}</Text>
+            <Text style={[styles.avatarEmail, t.textMuted]}>{user?.email}</Text>
             <View style={styles.avatarBadges}>
               {user?.is_verified && <Badge label="Verified" variant="success" size="sm" dot />}
               <Badge label={user?.role ?? 'TOURIST'} variant="info" size="sm" />
@@ -281,21 +292,21 @@ export default function ProfileScreen() {
           <Card>
             {editing ? (
               <>
-                <EditableField label="Full Name" value={form.full_name} onChangeText={set('full_name')}
+                <EditableField label="Full Name" value={form.full_name} onChangeText={setFullName}
                   placeholder="John Doe" icon={<Icon.User size={16} color={Colors.textMuted} />} />
                 <View style={styles.fieldDivider} />
-                <EditableField label="Phone Number" value={form.phone} onChangeText={set('phone')}
+                <EditableField label="Phone Number" value={form.phone} onChangeText={setPhone}
                   placeholder="+91 98765 43210" keyboardType="phone-pad" icon={<Icon.Phone size={16} color={Colors.textMuted} />} />
                 <View style={styles.fieldDivider} />
-                <EditableField label="Date of Birth" value={form.date_of_birth} onChangeText={set('date_of_birth')}
+                <EditableField label="Date of Birth" value={form.date_of_birth} onChangeText={setDateOfBirth}
                   placeholder="1990-01-31" keyboardType="numbers-and-punctuation" icon={<Icon.Clock size={16} color={Colors.textMuted} />} />
                 <View style={styles.fieldDivider} />
-                <EditableField label="Nationality" value={form.nationality} onChangeText={set('nationality')}
+                <EditableField label="Nationality" value={form.nationality} onChangeText={setNationality}
                   placeholder="Indian" icon={<Icon.Globe size={16} color={Colors.textMuted} />} />
                 <View style={styles.fieldDivider} />
                 <View style={styles.field}>
-                  <Text style={styles.fieldLabel}>Gender</Text>
-                  <ChipRow options={GENDERS} value={form.gender} onChange={set('gender')} />
+                  <Text style={[styles.fieldLabel, t.textSecondary]}>Gender</Text>
+                  <ChipRow options={GENDERS} value={form.gender} onChange={setGender} />
                 </View>
               </>
             ) : (
@@ -339,14 +350,14 @@ export default function ProfileScreen() {
                   placeholder="+91 98765 43210" keyboardType="phone-pad" icon={<Icon.Phone size={16} color={Colors.error} />} />
                 <View style={styles.fieldDivider} />
                 <View style={styles.field}>
-                  <Text style={styles.fieldLabel}>Blood Group</Text>
-                  <ChipRow options={BLOOD_GROUPS} value={form.blood_group} onChange={set('blood_group')} />
+                  <Text style={[styles.fieldLabel, t.textSecondary]}>Blood Group</Text>
+                  <ChipRow options={BLOOD_GROUPS} value={form.blood_group} onChange={setBloodGroup} />
                 </View>
                 <View style={styles.fieldDivider} />
-                <EditableField label="Medical Conditions" value={form.medical_conditions} onChangeText={set('medical_conditions')}
+                <EditableField label="Medical Conditions" value={form.medical_conditions} onChangeText={setMedicalConditions}
                   placeholder="e.g. Diabetes, Hypertension..." multiline icon={<Icon.Activity size={16} color={Colors.textMuted} />} />
                 <View style={styles.fieldDivider} />
-                <EditableField label="Allergies" value={form.allergies} onChangeText={set('allergies')}
+                <EditableField label="Allergies" value={form.allergies} onChangeText={setAllergies}
                   placeholder="e.g. Penicillin, Pollen..." multiline icon={<Icon.AlertTriangle size={16} color={Colors.textMuted} />} />
               </>
             ) : (
@@ -373,7 +384,7 @@ export default function ProfileScreen() {
           <Animated.View entering={FadeInDown.duration(300)} style={styles.editActions}>
             <TouchableOpacity style={[styles.cancelBtn, t.surface,]} onPress={handleCancel}>
               <Icon.X size={16} color={Colors.textSecondary} />
-              <Text style={styles.cancelBtnText}>Cancel</Text>
+              <Text style={[styles.cancelBtnText, t.textSecondary]}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.saveBtn, saveMutation.isPending && styles.btnDisabled]}
@@ -393,7 +404,7 @@ export default function ProfileScreen() {
           <Animated.View entering={FadeInDown.duration(400).delay(260)}>
             <TouchableOpacity style={[styles.settingsLink, t.surface, t.border]} onPress={() => router.push('/settings')} activeOpacity={0.8}>
               <Icon.Settings size={18} color={Colors.textSecondary} />
-              <Text style={styles.settingsLinkText}>Change password, language, or delete account</Text>
+              <Text style={[styles.settingsLinkText, t.textSecondary]}>Change password, language, or delete account</Text>
               <Icon.ChevronRight size={16} color={Colors.textMuted} />
             </TouchableOpacity>
           </Animated.View>

@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (token: string) => void;
-  reject: (err: unknown) => void;
+  reject:  (err: unknown)  => void;
 }> = [];
 
 const processQueue = (error: unknown, token: string | null) => {
@@ -14,16 +14,19 @@ const processQueue = (error: unknown, token: string | null) => {
   failedQueue = [];
 };
 
+// Routes that must NEVER trigger token refresh — they are auth routes themselves
+const AUTH_ROUTES = ['/auth/login', '/auth/refresh', '/auth/logout', '/auth/register'];
+
 export const apiClient: AxiosInstance = axios.create({
   baseURL: Config.API_BASE_URL,
   timeout: 15_000,
   headers: {
     'Content-Type': 'application/json',
-    Accept: 'application/json',
+    Accept:         'application/json',
   },
 });
 
-// ── Request interceptor: attach access token ──────────────
+// ── Request: attach access token ─────────────────────────
 apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   const token = await SecureStorage.get(Config.ACCESS_TOKEN_KEY);
   if (token) {
@@ -32,13 +35,26 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
   return config;
 });
 
-// ── Response interceptor: silent token refresh ────────────
+// ── Response: silent token refresh ───────────────────────
 apiClient.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const url      = original?.url ?? '';
+
+    // Never retry auth routes — prevents infinite loop after logout
+    const isAuthRoute = AUTH_ROUTES.some((r) => url.includes(r));
+    if (isAuthRoute) {
+      return Promise.reject(error);
+    }
 
     if (error.response?.status !== 401 || original._retry) {
+      return Promise.reject(error);
+    }
+
+    // If we have no tokens at all, user is logged out — don't retry
+    const existingToken = await SecureStorage.get(Config.ACCESS_TOKEN_KEY);
+    if (!existingToken) {
       return Promise.reject(error);
     }
 
@@ -55,7 +71,7 @@ apiClient.interceptors.response.use(
     }
 
     original._retry = true;
-    isRefreshing = true;
+    isRefreshing    = true;
 
     try {
       const refreshToken = await SecureStorage.get(Config.REFRESH_TOKEN_KEY);
@@ -74,7 +90,8 @@ apiClient.interceptors.response.use(
       return apiClient(original);
     } catch (err) {
       processQueue(err, null);
-      // Force logout
+      // Tokens are invalid — clear everything and go to login
+      await SecureStorage.clear([Config.ACCESS_TOKEN_KEY, Config.REFRESH_TOKEN_KEY]);
       useAuthStore.getState().logout();
       return Promise.reject(err);
     } finally {
