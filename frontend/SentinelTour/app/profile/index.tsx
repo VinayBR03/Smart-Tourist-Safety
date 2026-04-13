@@ -19,22 +19,24 @@ import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 import { format } from 'date-fns';
 import type { User, UserLanguage } from '@/types/api';
 import { useThemedStyles } from '@/utils/themedStyles';
+import { useColors } from '@/context/ThemeContext'
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-', 'Unknown'];
 const GENDERS      = ['Male', 'Female', 'Other', 'Prefer not to say'];
-const t            = useThemedStyles();
 
 function SectionLabel({ title }: { title: string }) {
-  return <Text style={[styles.sectionLabel, t.textMuted]}>{title}</Text>;
+  const C = useColors();
+  return <Text style={[styles.sectionLabel, { color: C.textMuted }]}>{title}</Text>;
 }
 
 function InfoRow({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+  const C = useColors();
   return (
     <View style={styles.infoRow}>
       <View style={styles.infoIcon}>{icon}</View>
       <View style={styles.infoContent}>
-        <Text style={[styles.infoLabel, t.textMuted]}>{label}</Text>
-        <Text style={[styles.infoValue, t.textPrimary]} numberOfLines={2}>{value || '—'}</Text>
+        <Text style={[styles.infoLabel, { color: C.textMuted }]}>{label}</Text>
+        <Text style={[styles.infoValue, { color: C.textPrimary }]} numberOfLines={2}>{value || '—'}</Text>
       </View>
     </View>
   );
@@ -46,10 +48,12 @@ function EditableField({
   label: string; value: string; onChangeText: (v: string) => void;
   placeholder?: string; keyboardType?: any; multiline?: boolean; icon: React.ReactNode;
 }) {
+  const C = useColors();
   return (
     <View style={styles.field}>
-      <Text style={[styles.fieldLabel, t.textSecondary]}>{label}</Text>
-      <View style={[styles.fieldInput,t.border , t.surfaceAlt, t.bg, multiline && { height: 88, alignItems: 'flex-start', paddingTop: Spacing.sm }]}>
+      <Text style={[styles.fieldLabel, { color: C.textSecondary }]}>{label}</Text>
+      <View style={[styles.fieldInput, { borderColor: C.textSecondary }]}>{label}</View>
+      <View style={[styles.fieldInput,{ borderColor: C.border, backgroundColor: C.surfaceAlt }, multiline && { height: 88, alignItems: 'flex-start', paddingTop: Spacing.sm }]}>
         <View style={styles.fieldIcon}>{icon}</View>
         <TextInput
           style={[styles.fieldText, multiline && styles.fieldTextMulti]}
@@ -225,7 +229,7 @@ export default function ProfileScreen() {
   return (
     <View style={[styles.root, t.bg]}>
       <Header
-        title="My `Profile`"
+        title="My Profile"
         showBack
         rightEl={
           editing ? (

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -17,6 +17,7 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { useTheme } from '@/hooks/useTheme';
+import { useThemeStore } from '@/store/themeStore';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -26,7 +27,6 @@ const queryClient = new QueryClient({
   },
 });
 
-// Inner component reads theme after Provider is mounted
 function AppShell() {
   const { C, theme } = useTheme();
 
@@ -58,6 +58,9 @@ function AppShell() {
 }
 
 export default function RootLayout() {
+  const hydrateTheme          = useThemeStore((s) => s.hydrate);
+  const [themeReady, setThemeReady] = useState(false);
+
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -67,13 +70,18 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync();
-  }, [fontsLoaded]);
+    // Load persisted theme before rendering anything
+    hydrateTheme().finally(() => setThemeReady(true));
+  }, []);
 
-  if (!fontsLoaded) return null;
+  useEffect(() => {
+    if (fontsLoaded && themeReady) SplashScreen.hideAsync();
+  }, [fontsLoaded, themeReady]);
+
+  // Wait for both fonts AND theme to be ready
+  if (!fontsLoaded || !themeReady) return null;
 
   return (
-    // ThemeProvider is outermost — single Zustand subscription for entire app
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <AppShell />

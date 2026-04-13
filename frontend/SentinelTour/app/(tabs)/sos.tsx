@@ -24,8 +24,6 @@ import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 import { Platform } from 'react-native';
 import { useThemedStyles } from '@/utils/themedStyles';
 
-const t = useThemedStyles();
-
 const HOLD_MS = 3000;
 
 // Light vibration pattern: 100ms on, 100ms off × 15 times (~3 sec)

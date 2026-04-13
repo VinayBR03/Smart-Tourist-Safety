@@ -23,8 +23,7 @@ import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
 import type { NotificationSummary, NotificationSeverity } from '@/types/api';
 import { useThemedStyles } from '@/utils/themedStyles';
-
-const t = useThemedStyles();
+import { useColors } from '@/context/ThemeContext';
 
 // ─── Severity icon map ────────────────────────────────────
 function SeverityIcon({ severity, size = 18 }: { severity: NotificationSeverity; size?: number }) {
@@ -68,6 +67,7 @@ function NotificationRow({
   item: NotificationSummary;
   onMarkRead: (id: number) => void;
 }) {
+  const C = useColors();
   const isUnread = item.status !== 'READ';
 
   return (
@@ -77,7 +77,7 @@ function NotificationRow({
       layout={Layout.springify()}
     >
       <TouchableOpacity
-        style={[styles.notifRow, t.surface, t.border, isUnread && styles.notifRowUnread]}
+        style={[styles.notifRow,  { backgroundColor: C.surface, borderColor: C.border }, isUnread && styles.notifRowUnread]}
         onPress={() => isUnread && onMarkRead(item.id)}
         activeOpacity={0.8}
       >
@@ -93,19 +93,19 @@ function NotificationRow({
         <View style={styles.notifContent}>
           <View style={styles.notifTitleRow}>
             <Text
-              style={[styles.notifTitle, t.textSecondary, isUnread && styles.notifTitleUnread]}
+              style={[styles.notifTitle, { color: isUnread ? C.textPrimary : C.textSecondary }, isUnread && { fontFamily: 'SpaceGrotesk_600SemiBold' }]}
               numberOfLines={1}
             >
               {item.title}
             </Text>
             {isUnread && <View style={styles.unreadDot} />}
           </View>
-          <Text style={[styles.notifBody, t.textMuted]} numberOfLines={2}>
+          <Text style={[styles.notifBody, { color: C.textMuted }]} numberOfLines={2}>
             {item.body}
           </Text>
           <View style={styles.notifMeta}>
             <Icon.Clock size={11} color={Colors.textMuted} />
-            <Text style={[styles.notifTime, t.textMuted]}>
+            <Text style={[styles.notifTime, { color: C.textMuted }]}>
               {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
             </Text>
             <Badge
@@ -125,13 +125,14 @@ function NotificationRow({
 
 // ─── Empty state ──────────────────────────────────────────
 function EmptyState() {
+  const C = useColors();
   return (
     <Animated.View entering={FadeInDown.duration(500)} style={styles.emptyState}>
       <View style={styles.emptyIconWrap}>
         <Icon.Bell size={36} color={Colors.textMuted} />
       </View>
-      <Text style={[styles.emptyTitle, t.textPrimary]}>All caught up</Text>
-      <Text style={[styles.emptySub, t.textMuted]}>
+      <Text style={[styles.emptyTitle, { color: C.textPrimary }]}>All caught up</Text>
+      <Text style={[styles.emptySub, { color: C.textMuted }]}>
         No notifications yet. We will alert you of any safety updates or health events.
       </Text>
     </Animated.View>
@@ -238,9 +239,10 @@ export default function NotificationsScreen() {
           ListEmptyComponent={<EmptyState />}
           renderItem={({ item }) => {
             if (item.type === 'header') {
+              const C = t.C;
               return (
                 <View style={styles.dateHeader}>
-                  <Text style={[styles.dateHeaderText, t.textMuted]}>{item.title}</Text>
+                  <Text style={[styles.dateHeaderText, { color: C.textMuted }]}>{item.title}</Text>
                 </View>
               );
             }

@@ -1,3 +1,8 @@
+// src/utils/i18n.ts
+// ─── FULL REPLACEMENT ────────────────────────────────────────────────────────
+// Place at: src/utils/i18n.ts  (replaces the entire file)
+
+import { create } from 'zustand';
 import type { UserLanguage } from '@/types/api';
 
 // Normalise to lowercase so "EN", "En", "en" all work
@@ -8,6 +13,7 @@ export function normaliseLanguage(lang: string | null | undefined): UserLanguage
   return valid.includes(lower as UserLanguage) ? (lower as UserLanguage) : 'en';
 }
 
+// ─── Translation strings (unchanged) ─────────────────────────────────────────
 const strings: Record<UserLanguage, Record<string, string>> = {
   en: {
     welcome: 'Welcome to Sentinel Tour',
@@ -75,6 +81,31 @@ const strings: Record<UserLanguage, Record<string, string>> = {
     scanning: 'Scanning...',
     connect: 'Connect',
     disconnect: 'Disconnect',
+    startScanning: 'Start Scanning',
+    stopScanning: 'Stop Scanning',
+    connectedWristband: 'Connected Wristband',
+    connectWristband: 'Connect Wristband',
+    setupGuide: 'Setup Guide',
+    appLanguage: 'App Language',
+    appearance: 'Appearance',
+    darkMode: 'Dark Mode',
+    lightMode: 'Light Mode',
+    switchToLight: 'Switch to light theme',
+    switchToDark: 'Switch to dark theme',
+    security: 'Security',
+    changePassword: 'Change your account password',
+    about: 'About',
+    account: 'Account',
+    signOut: 'Sign out of your account',
+    permanentlyRemove: 'Permanently remove your data',
+    tapToEdit: 'Tap to edit profile',
+    noZoneData: 'No zone data',
+    highRiskZones: 'High Risk Zones',
+    recentIncidents: 'Recent Incidents',
+    sosAlert: 'SOS Alert',
+    activeSOS: 'Active SOS',
+    cancelSOS: 'Cancel SOS',
+    holdToActivate: 'Hold to Activate',
   },
 
   hi: {
@@ -143,6 +174,31 @@ const strings: Record<UserLanguage, Record<string, string>> = {
     scanning: 'स्कैन हो रहा है...',
     connect: 'जोड़ें',
     disconnect: 'हटाएं',
+    startScanning: 'स्कैन शुरू करें',
+    stopScanning: 'स्कैन रोकें',
+    connectedWristband: 'जुड़ा रिस्टबैंड',
+    connectWristband: 'रिस्टबैंड जोड़ें',
+    setupGuide: 'सेटअप गाइड',
+    appLanguage: 'ऐप भाषा',
+    appearance: 'दिखावट',
+    darkMode: 'डार्क मोड',
+    lightMode: 'लाइट मोड',
+    switchToLight: 'लाइट थीम पर जाएं',
+    switchToDark: 'डार्क थीम पर जाएं',
+    security: 'सुरक्षा',
+    changePassword: 'अपना पासवर्ड बदलें',
+    about: 'जानकारी',
+    account: 'अकाउंट',
+    signOut: 'अकाउंट से साइन आउट करें',
+    permanentlyRemove: 'अपना डेटा स्थायी रूप से हटाएं',
+    tapToEdit: 'प्रोफ़ाइल संपादित करने के लिए टैप करें',
+    noZoneData: 'कोई ज़ोन डेटा नहीं',
+    highRiskZones: 'उच्च जोखिम क्षेत्र',
+    recentIncidents: 'हालिया घटनाएं',
+    sosAlert: 'SOS अलर्ट',
+    activeSOS: 'SOS सक्रिय',
+    cancelSOS: 'SOS रद्द करें',
+    holdToActivate: 'सक्रिय करने के लिए दबाए रखें',
   },
 
   kn: {
@@ -211,6 +267,31 @@ const strings: Record<UserLanguage, Record<string, string>> = {
     scanning: 'ಸ್ಕ್ಯಾನ್ ಆಗುತ್ತಿದೆ...',
     connect: 'ಸಂಪರ್ಕಿಸಿ',
     disconnect: 'ಸಂಪರ್ಕ ತಪ್ಪಿಸಿ',
+    startScanning: 'ಸ್ಕ್ಯಾನ್ ಪ್ರಾರಂಭಿಸಿ',
+    stopScanning: 'ಸ್ಕ್ಯಾನ್ ನಿಲ್ಲಿಸಿ',
+    connectedWristband: 'ಸಂಪರ್ಕಿತ ರಿಸ್ಟ್‌ಬ್ಯಾಂಡ್',
+    connectWristband: 'ರಿಸ್ಟ್‌ಬ್ಯಾಂಡ್ ಸಂಪರ್ಕಿಸಿ',
+    setupGuide: 'ಸೆಟಪ್ ಮಾರ್ಗದರ್ಶಿ',
+    appLanguage: 'ಅಪ್ಲಿಕೇಶನ್ ಭಾಷೆ',
+    appearance: 'ನೋಟ',
+    darkMode: 'ಡಾರ್ಕ್ ಮೋಡ್',
+    lightMode: 'ಲೈಟ್ ಮೋಡ್',
+    switchToLight: 'ಲೈಟ್ ಥೀಮ್‌ಗೆ ಬದಲಿಸಿ',
+    switchToDark: 'ಡಾರ್ಕ್ ಥೀಮ್‌ಗೆ ಬದಲಿಸಿ',
+    security: 'ಭದ್ರತೆ',
+    changePassword: 'ನಿಮ್ಮ ಖಾತೆ ಪಾಸ್‌ವರ್ಡ್ ನವೀಕರಿಸಿ',
+    about: 'ಬಗ್ಗೆ',
+    account: 'ಖಾತೆ',
+    signOut: 'ನಿಮ್ಮ ಖಾತೆಯಿಂದ ಸೈನ್ ಔಟ್ ಮಾಡಿ',
+    permanentlyRemove: 'ನಿಮ್ಮ ಡೇಟಾವನ್ನು ಶಾಶ್ವತವಾಗಿ ತೆಗೆದುಹಾಕಿ',
+    tapToEdit: 'ಪ್ರೊಫೈಲ್ ಸಂಪಾದಿಸಲು ಟ್ಯಾಪ್ ಮಾಡಿ',
+    noZoneData: 'ಯಾವುದೇ ವಲಯ ಡೇಟಾ ಇಲ್ಲ',
+    highRiskZones: 'ಹೆಚ್ಚಿನ ಅಪಾಯದ ವಲಯಗಳು',
+    recentIncidents: 'ಇತ್ತೀಚಿನ ಘಟನೆಗಳು',
+    sosAlert: 'SOS ಎಚ್ಚರಿಕೆ',
+    activeSOS: 'SOS ಸಕ್ರಿಯ',
+    cancelSOS: 'SOS ರದ್ದು',
+    holdToActivate: 'ಸಕ್ರಿಯಗೊಳಿಸಲು ಹಿಡಿದಿರಿ',
   },
 
   te: {
@@ -279,6 +360,31 @@ const strings: Record<UserLanguage, Record<string, string>> = {
     scanning: 'స్కాన్ అవుతోంది...',
     connect: 'కనెక్ట్',
     disconnect: 'డిస్‌కనెక్ట్',
+    startScanning: 'స్కాన్ ప్రారంభించండి',
+    stopScanning: 'స్కాన్ ఆపండి',
+    connectedWristband: 'కనెక్ట్ అయిన రిస్ట్‌బ్యాండ్',
+    connectWristband: 'రిస్ట్‌బ్యాండ్ కనెక్ట్ చేయండి',
+    setupGuide: 'సెటప్ గైడ్',
+    appLanguage: 'యాప్ భాష',
+    appearance: 'రూపం',
+    darkMode: 'డార్క్ మోడ్',
+    lightMode: 'లైట్ మోడ్',
+    switchToLight: 'లైట్ థీమ్‌కి మారండి',
+    switchToDark: 'డార్క్ థీమ్‌కి మారండి',
+    security: 'భద్రత',
+    changePassword: 'మీ ఖాతా పాస్‌వర్డ్ నవీకరించండి',
+    about: 'గురించి',
+    account: 'ఖాతా',
+    signOut: 'మీ ఖాతా నుండి సైన్ అవుట్ చేయండి',
+    permanentlyRemove: 'మీ డేటాను శాశ్వతంగా తొలగించండి',
+    tapToEdit: 'ప్రొఫైల్ సవరించడానికి నొక్కండి',
+    noZoneData: 'జోన్ డేటా లేదు',
+    highRiskZones: 'అధిక ప్రమాద జోన్లు',
+    recentIncidents: 'ఇటీవలి సంఘటనలు',
+    sosAlert: 'SOS హెచ్చరిక',
+    activeSOS: 'SOS సక్రియం',
+    cancelSOS: 'SOS రద్దు చేయండి',
+    holdToActivate: 'సక్రియం చేయడానికి పట్టుకోండి',
   },
 
   ta: {
@@ -347,6 +453,31 @@ const strings: Record<UserLanguage, Record<string, string>> = {
     scanning: 'ஸ்கேன் ஆகிறது...',
     connect: 'இணை',
     disconnect: 'துண்டி',
+    startScanning: 'ஸ்கேன் தொடங்கு',
+    stopScanning: 'ஸ்கேன் நிறுத்து',
+    connectedWristband: 'இணைக்கப்பட்ட ரிஸ்ட்பேண்ட்',
+    connectWristband: 'ரிஸ்ட்பேண்ட் இணை',
+    setupGuide: 'அமைப்பு வழிகாட்டி',
+    appLanguage: 'செயலி மொழி',
+    appearance: 'தோற்றம்',
+    darkMode: 'இருண்ட பயன்முறை',
+    lightMode: 'ஒளி பயன்முறை',
+    switchToLight: 'ஒளி தீம்க்கு மாறு',
+    switchToDark: 'இருண்ட தீம்க்கு மாறு',
+    security: 'பாதுகாப்பு',
+    changePassword: 'உங்கள் கணக்கு கடவுச்சொல்லை புதுப்பி',
+    about: 'பற்றி',
+    account: 'கணக்கு',
+    signOut: 'உங்கள் கணக்கிலிருந்து வெளியேறு',
+    permanentlyRemove: 'உங்கள் தரவை நிரந்தரமாக அகற்று',
+    tapToEdit: 'சுயவிவரத்தை திருத்த தட்டவும்',
+    noZoneData: 'மண்டல தரவு இல்லை',
+    highRiskZones: 'அதிக ஆபத்து மண்டலங்கள்',
+    recentIncidents: 'சமீபத்திய சம்பவங்கள்',
+    sosAlert: 'SOS எச்சரிக்கை',
+    activeSOS: 'SOS செயலில் உள்ளது',
+    cancelSOS: 'SOS ரத்து செய்',
+    holdToActivate: 'செயல்படுத்த பிடி',
   },
 
   ml: {
@@ -415,26 +546,66 @@ const strings: Record<UserLanguage, Record<string, string>> = {
     scanning: 'സ്കാൻ ചെയ്യുന്നു...',
     connect: 'ബന്ധിപ്പിക്കുക',
     disconnect: 'വിച്ഛേദിക്കുക',
+    startScanning: 'സ്കാൻ ആരംഭിക്കുക',
+    stopScanning: 'സ്കാൻ നിർത്തുക',
+    connectedWristband: 'ബന്ധിപ്പിച്ച റിസ്റ്റ്ബാൻഡ്',
+    connectWristband: 'റിസ്റ്റ്ബാൻഡ് ബന്ധിപ്പിക്കുക',
+    setupGuide: 'സജ്ജീകരണ ഗൈഡ്',
+    appLanguage: 'ആപ്പ് ഭാഷ',
+    appearance: 'രൂപം',
+    darkMode: 'ഡാർക്ക് മോഡ്',
+    lightMode: 'ലൈറ്റ് മോഡ്',
+    switchToLight: 'ലൈറ്റ് തീമിലേക്ക് മാറുക',
+    switchToDark: 'ഡാർക്ക് തീമിലേക്ക് മാറുക',
+    security: 'സുരക്ഷ',
+    changePassword: 'നിങ്ങളുടെ അക്കൗണ്ട് പാസ്‌വേഡ് അപ്‌ഡേറ്റ് ചെയ്യുക',
+    about: 'കുറിച്ച്',
+    account: 'അക്കൗണ്ട്',
+    signOut: 'നിങ്ങളുടെ അക്കൗണ്ടിൽ നിന്ന് സൈൻ ഔട്ട് ചെയ്യുക',
+    permanentlyRemove: 'നിങ്ങളുടെ ഡേറ്റ സ്ഥിരമായി നീക്കം ചെയ്യുക',
+    tapToEdit: 'പ്രൊഫൈൽ എഡിറ്റ് ചെയ്യാൻ ടാപ്പ് ചെയ്യുക',
+    noZoneData: 'സോൺ ഡേറ്റ ഇല്ല',
+    highRiskZones: 'ഉയർന്ന അപകട മേഖലകൾ',
+    recentIncidents: 'സമീപകാല സംഭവങ്ങൾ',
+    sosAlert: 'SOS അലേർട്ട്',
+    activeSOS: 'SOS സജീവം',
+    cancelSOS: 'SOS റദ്ദാക്കുക',
+    holdToActivate: 'സജീവമാക്കാൻ പിടിക്കുക',
   },
 };
 
-let currentLanguage: UserLanguage = 'en';
+// ─── Zustand store — this is what makes language changes reactive ─────────────
+// Components subscribe to this store. When setLanguage() is called,
+// Zustand notifies every subscribed component and they re-render with new strings.
+interface I18nState {
+  language: UserLanguage;
+  setLanguage: (lang: string) => void;
+}
 
+export const useI18nStore = create<I18nState>((set) => ({
+  language: 'en',
+  setLanguage: (lang: string) => set({ language: normaliseLanguage(lang) }),
+}));
+
+// ─── useTranslation hook — use this in every screen/component ─────────────────
+// const { t } = useTranslation();
+// <Text>{t('dashboard')}</Text>
+export function useTranslation() {
+  const language = useI18nStore((s) => s.language);
+  const t = (key: string): string =>
+    strings[language]?.[key] ?? strings.en[key] ?? key;
+  return { t, language };
+}
+
+// ─── Backwards-compatible imperative API (kept for index.tsx / settings.tsx) ──
+// These still work but only update the store, not a stale module variable.
 export const i18n = {
-  setLanguage: (lang: string) => {
-    currentLanguage = normaliseLanguage(lang);
-  },
-
+  setLanguage: (lang: string) => useI18nStore.getState().setLanguage(lang),
+  getLanguage: () => useI18nStore.getState().language,
   t: (key: string): string => {
-    return (
-      strings[currentLanguage]?.[key] ??
-      strings.en[key] ??
-      key
-    );
+    const lang = useI18nStore.getState().language;
+    return strings[lang]?.[key] ?? strings.en[key] ?? key;
   },
-
-  getLanguage: () => currentLanguage,
-
   languageLabels: {
     en: 'English',
     hi: 'हिंदी',

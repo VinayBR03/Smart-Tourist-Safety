@@ -145,9 +145,9 @@ const styles = StyleSheet.create({
   badge:    { position: 'absolute', top: -2, right: -6 },
   badgeDot: { width: 8, height: 8, borderRadius: 4, borderWidth: 1.5 },
   sosTab: {
-    width: 54, height: 54, borderRadius: 27,
+    width: 46, height: 46, borderRadius: 23,
     borderWidth: 2, alignItems: 'center', justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: -10,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.45, shadowRadius: 12, elevation: 10,
   },

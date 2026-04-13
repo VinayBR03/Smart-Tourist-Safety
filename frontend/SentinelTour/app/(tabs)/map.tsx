@@ -28,8 +28,6 @@ import type { ZoneWithStatus, RiskLevel } from '@/types/api';
 import { Config } from '@/constants/config';
 import { useThemedStyles } from '@/utils/themedStyles';
 
-const t = useThemedStyles();
-
 // ─── Nominatim result ────────────────────────────────────
 interface NominatimResult {
   place_id: number;

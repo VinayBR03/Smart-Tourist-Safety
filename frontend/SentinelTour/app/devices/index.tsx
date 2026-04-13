@@ -18,9 +18,7 @@ import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 import { formatDistanceToNow } from 'date-fns';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useThemedStyles } from '@/utils/themedStyles';
-
-const t = useThemedStyles();
-
+import { useColors } from '@/context/ThemeContext';
 
 // ─── Battery ring SVG ─────────────────────────────────────
 function BatteryRing({ percentage }: { percentage: number }) {
@@ -97,20 +95,21 @@ function DeviceRow({
   onConnect: () => void;
   connecting: boolean;
 }) {
+  const C = useColors();
   return (
     <Animated.View entering={FadeInDown.duration(350)}>
-      <TouchableOpacity style={[styles.deviceRow, t.surface, t.border]} onPress={onConnect} activeOpacity={0.82}>
+      <TouchableOpacity style={[styles.deviceRow, { backgroundColor: C.surface, borderColor: C.border }]} onPress={onConnect} activeOpacity={0.82}>
         <View style={styles.deviceRowLeft}>
           <View style={styles.deviceRowIcon}>
             <Icon.Bluetooth size={20} color={Colors.primary} />
           </View>
           <View>
-            <Text style={[styles.deviceRowName, t.textPrimary]}>{device.name ?? 'Sentinel Wristband'}</Text>
-            <Text style={[styles.deviceRowId, t.textMuted]} numberOfLines={1}>
+            <Text style={[styles.deviceRowName, { color: C.textPrimary }]}>{device.name ?? 'Sentinel Wristband'}</Text>
+            <Text style={[styles.deviceRowId, { color: C.textMuted }]} numberOfLines={1}>
               {device.id}
             </Text>
             {device.rssi != null && (
-              <Text style={[styles.deviceRowRssi, t.textMuted]}>Signal: {device.rssi} dBm</Text>
+              <Text style={[styles.deviceRowRssi, { color: C.textMuted }]}>Signal: {device.rssi} dBm</Text>
             )}
           </View>
         </View>
@@ -118,7 +117,7 @@ function DeviceRow({
           <ActivityIndicator size="small" color={Colors.primary} />
         ) : (
           <View style={styles.connectChip}>
-            <Text style={[styles.connectChipText, t.textPrimary]}>Connect</Text>
+            <Text style={[styles.connectChipText, { color: C.textPrimary }]}>Connect</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -128,6 +127,7 @@ function DeviceRow({
 
 // ─── Connected device card ────────────────────────────────
 function ConnectedDeviceCard({ onDisconnect }: { onDisconnect: () => void }) {
+  const C = useColors();
   const { device } = useDeviceStore();
   if (!device) return null;
 
@@ -178,7 +178,7 @@ function ConnectedDeviceCard({ onDisconnect }: { onDisconnect: () => void }) {
         )}
 
         {/* Live metrics row */}
-        <View style={[styles.metricsRow, t.surfaceAlt]}>
+        <View style={[styles.metricsRow, { backgroundColor: C.surfaceAlt }]}>
           <MetricMini
             label="Heart Rate"
             value={device.lastHeartRate != null ? `${device.lastHeartRate} bpm` : '—'}
@@ -203,7 +203,7 @@ function ConnectedDeviceCard({ onDisconnect }: { onDisconnect: () => void }) {
         {device.lastSeen && (
           <View style={styles.lastSeen}>
             <Icon.Clock size={12} color={Colors.textMuted} />
-            <Text style={[styles.lastSeenText, t.textMuted]}>
+            <Text style={[styles.lastSeenText, { color: C.textMuted }]}>
               Last reading: {formatDistanceToNow(device.lastSeen, { addSuffix: true })}
             </Text>
           </View>
@@ -214,11 +214,12 @@ function ConnectedDeviceCard({ onDisconnect }: { onDisconnect: () => void }) {
 }
 
 function MetricMini({ label, value, icon, color }: { label: string; value: string; icon: React.ReactNode; color: string }) {
+  const C = useColors();
   return (
     <View style={styles.metricMini}>
       {icon}
       <Text style={[styles.metricMiniValue, { color }]}>{value}</Text>
-      <Text style={styles.metricMiniLabel}>{label}</Text>
+      <Text style={[styles.metricMiniLabel, { color: C.textMuted }]}>{label}</Text>
     </View>
   );
 }
@@ -399,8 +400,9 @@ export default function DevicesScreen() {
 }
 
 function SectionTitle({ label }: { label: string }) {
+  const C = useColors();
   return (
-    <Text style={styles.sectionTitle}>{label}</Text>
+    <Text style={[styles.sectionTitle, { color: C.textMuted }]}>{label}</Text>
   );
 }
 

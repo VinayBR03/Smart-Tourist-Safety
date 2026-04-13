@@ -12,8 +12,7 @@ import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 import { i18n } from '@/utils/i18n';
 import type { UserLanguage } from '@/types/api';
 import { useThemedStyles } from '@/utils/themedStyles';
-
-const t = useThemedStyles();
+import { useColors } from '@/context/ThemeContext';
 
 const LANGUAGES: { code: UserLanguage; label: string; native: string; flag: string }[] = [
   { code: 'en', label: 'English', native: 'English', flag: '🇬🇧' },
@@ -94,6 +93,7 @@ function LanguageCard({
   onSelect: () => void;
   index: number;
 }) {
+  const C = useColors();
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -109,16 +109,16 @@ function LanguageCard({
   return (
     <Animated.View entering={FadeInDown.duration(400).delay(index * 60)} style={animStyle}>
       <TouchableOpacity
-        style={[styles.langCard, t.surface, t.border, isSelected && styles.langCardSelected]}
+        style={[styles.langCard, { backgroundColor: C.surface, borderColor: C.border }, isSelected && { borderColor: C.primary, backgroundColor: 'rgba(59,130,246,0.08)' }]}
         onPress={handlePress}
         activeOpacity={0.8}
       >
         {isSelected && <View style={styles.selectedDot} />}
         <Text style={styles.langFlag}>{lang.flag}</Text>
-        <Text style={[styles.langNative, isSelected && styles.langNativeSelected, t.textPrimary]}>
+        <Text style={[styles.langNative, { color: isSelected ? C.primary : C.textPrimary }]}>
           {lang.native}
         </Text>
-        <Text style={[styles.langLabel, isSelected && styles.langLabelSelected, t.textSecondary]}>
+        <Text style={[styles.langLabel, { color: isSelected ? C.primary : C.textMuted   }]}>
           {lang.label}
         </Text>
       </TouchableOpacity>

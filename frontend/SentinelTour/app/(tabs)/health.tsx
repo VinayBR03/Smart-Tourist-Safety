@@ -18,8 +18,7 @@ import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { HealthTelemetry } from '@/types/api';
 import { useThemedStyles } from '@/utils/themedStyles';
-
-const t = useThemedStyles();
+import { useColors } from '@/context/ThemeContext';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CHART_W = SCREEN_W - Spacing.base * 2 - Spacing.md * 2;
@@ -147,12 +146,13 @@ interface MetricCardProps {
 function MetricDetailCard({
   label, value, unit, icon, color, history, normal, isAlert, index,
 }: MetricCardProps) {
+  const C = useColors();
   const [expanded, setExpanded] = useState(false);
 
   return (
     <Animated.View entering={FadeInDown.duration(400).delay(index * 100)}>
       <TouchableOpacity
-        style={[styles.metricCard, t.surface, t.border, isAlert && styles.metricCardAlert]}
+        style={[styles.metricCard, { backgroundColor: C.surface, borderColor: isAlert ? 'rgba(239,68,68,0.4)' : C.border }]}
         onPress={() => setExpanded((p) => !p)}
         activeOpacity={0.85}
       >
@@ -163,8 +163,8 @@ function MetricDetailCard({
               {icon}
             </View>
             <View>
-              <Text style={[styles.metricLabel, t.textPrimary]}>{label}</Text>
-              <Text style={[styles.metricNormal, t.textMuted]}>Normal: {normal}</Text>
+              <Text style={[styles.metricLabel, { color: C.textPrimary }]}>{label}</Text>
+              <Text style={[styles.metricNormal, { color: C.textMuted }]}>Normal: {normal}</Text>
             </View>
           </View>
 
@@ -195,7 +195,7 @@ function MetricDetailCard({
         {expanded && history.length > 1 && (
           <Animated.View entering={FadeInDown.duration(300)} style={styles.chartWrap}>
             <View style={styles.chartHeader}>
-              <Text style={[styles.chartTitle, t.textSecondary]}>Last {history.length} readings</Text>
+              <Text style={[styles.chartTitle,{ color: C.textSecondary }]}>Last {history.length} readings</Text>
               <Badge label="Live" variant="success" size="sm" dot />
             </View>
             <SparkLine data={history} color={color} />
@@ -204,7 +204,7 @@ function MetricDetailCard({
 
         {expanded && history.length <= 1 && (
           <View style={styles.chartEmpty}>
-            <Text style={styles.chartEmptyText}>Not enough data to show chart</Text>
+            <Text style={[styles.chartEmptyText, { color: C.textMuted }]}>Not enough data to show chart</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -425,13 +425,14 @@ export default function HealthScreen() {
 }
 
 function StatBox({ label, value, color, unit }: { label: string; value: string; color: string; unit?: string }) {
+  const C = useColors();
   return (
-    <View style={[styles.statBox, t.surface, t.border, { borderTopColor: color, borderTopWidth: 2 }]}>
+    <View style={[styles.statBox, { backgroundColor: C.surface, borderColor: C.border, borderTopColor: color, borderTopWidth: 2 }]}>
       <View style={styles.statValueRow}>
         <Text style={[styles.statValue, { color }]}>{value}</Text>
         {unit && <Text style={[styles.statUnit, { color }]}>{unit}</Text>}
       </View>
-      <Text style={[styles.statLabel, t.textMuted]}>{label}</Text>
+      <Text style={[styles.statLabel, { color: C.textMuted }]}>{label}</Text>
     </View>
   );
 }

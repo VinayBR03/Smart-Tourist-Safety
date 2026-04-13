@@ -79,17 +79,32 @@ class BluetoothService {
     await device.discoverAllServicesAndCharacteristics();
     this.connectedDevice = device;
 
-    // The backend device ID is broadcast in the BLE local name or
-    // a manufacturer data characteristic. Here we use the BLE device
-    // name as the backend serial number lookup key.
-    // Adjust this if your ESP32-C3 firmware broadcasts differently.
-    const deviceName = device.name ?? device.localName ?? bleDeviceId;
-    this.backendDeviceId = deviceName;
+    // ── Step 1: Read the firmware device_id from the dedicated BLE characteristic.
+    // This is the backend device_id (e.g. "WB001"), NOT the BLE MAC address.
+    // Fallback to BLE name if the characteristic isn't readable (older firmware).
+    let firmwareDeviceId: string | null = null;
+    try {
+      const characteristic = await device.readCharacteristicForService(
+        Config.BLE_SERVICE_UUID,
+        Config.BLE_CHAR_DEVICE_ID_UUID,
+      );
+      if (characteristic.value) {
+        firmwareDeviceId = Buffer.from(characteristic.value, 'base64')
+          .toString('utf8')
+          .trim();
+      }
+    } catch (err) {
+      console.warn('[BLE] Could not read device_id characteristic — falling back to BLE name:', err);
+    }
 
-    // 1. Update local store immediately so UI is responsive
+    // Final fallback: use BLE advertisement name
+    const resolvedId = firmwareDeviceId ?? device.name ?? device.localName ?? bleDeviceId;
+    this.backendDeviceId = resolvedId;
+
+    // ── Step 2: Update local store immediately so UI is responsive
     useDeviceStore.getState().setDevice({
-      id:                bleDeviceId,
-      name:              deviceName,
+      id:                resolvedId,
+      name:              device.name ?? resolvedId,
       batteryPercentage: null,
       isConnected:       true,
       lastHeartRate:     null,
@@ -98,85 +113,45 @@ class BluetoothService {
       lastSeen:          new Date(),
     });
 
-    // 2. Assign on backend (best-effort — don't block UI)
-    this.assignOnBackend(deviceName).catch((err) => {
-      console.warn('[BLE] Backend assignment failed:', err?.response?.status, err?.message);
-      // Device still works locally even if backend assignment fails
+    // ── Step 3: Pair on backend (best-effort — don't block UI)
+    // Uses POST /devices/{firmware_id}/pair (TOURIST JWT)
+    this.pairOnBackend(resolvedId).catch((err) => {
+      console.warn('[BLE] Backend pairing failed:', err?.response?.status, err?.message);
+      // Device still works locally for health reading even if pairing fails
     });
 
-    // 3. Subscribe to health metrics
+    // ── Step 4: Subscribe to health metrics
     this.subscribeToHealth(device);
 
-    // 4. Handle disconnect
+    // ── Step 5: Handle disconnect — auto-unpair on backend
     device.onDisconnected(async () => {
       console.info('[BLE] Device disconnected:', bleDeviceId);
-      await this.unassignOnBackend().catch((err) =>
-        console.warn('[BLE] Backend unassignment failed:', err?.message)
+      await this.unpairOnBackend().catch((err) =>
+        console.warn('[BLE] Backend unpairing failed:', err?.message)
       );
       useDeviceStore.getState().disconnect();
-      this.connectedDevice   = null;
-      this.backendDeviceId   = null;
+      this.connectedDevice = null;
+      this.backendDeviceId = null;
     });
   }
 
-  // ── Backend assignment ────────────────────────────────
-  private async assignOnBackend(deviceSerialOrId: string): Promise<void> {
+  // ── Backend pairing (BLE connect → assign to self) ──────────
+  private async pairOnBackend(firmwareDeviceId: string): Promise<void> {
     const user = useAuthStore.getState().user;
     if (!user?.id) {
-      console.warn('[BLE] Cannot assign — user not logged in');
+      console.warn('[BLE] Cannot pair — user not logged in');
       return;
     }
-
-    // Try to find the device in the backend by serial/name
-    // The admin registers devices with a serial_number that matches
-    // what the ESP32-C3 broadcasts as its BLE name.
-    try {
-      const devices = await devicesApi.listMine();
-      const match   = devices.find(
-        (d) =>
-          d.serial_number === deviceSerialOrId ||
-          d.id === deviceSerialOrId
-      );
-
-      if (!match) {
-        console.warn(
-          '[BLE] Device not found in backend registry:',
-          deviceSerialOrId,
-          '— assignment skipped. Ask admin to register the device first.'
-        );
-        return;
-      }
-
-      await devicesApi.assignToMe(match.id, user.id);
-      console.info('[BLE] Device assigned on backend:', match.id, '→ tourist', user.id);
-    } catch (err: any) {
-      // 409 = already assigned to this tourist — that's fine
-      if (err?.response?.status === 409) {
-        console.info('[BLE] Device already assigned to this tourist');
-        return;
-      }
-      throw err;
-    }
+    // 409 = already assigned to this tourist — idempotent, not an error
+    await devicesApi.pairDevice(firmwareDeviceId);
+    console.info('[BLE] Device paired on backend:', firmwareDeviceId, '→ tourist', user.id);
   }
 
-  private async unassignOnBackend(): Promise<void> {
+  // ── Backend unpairing (BLE disconnect → unassign self) ───────
+  private async unpairOnBackend(): Promise<void> {
     if (!this.backendDeviceId) return;
-
-    try {
-      const devices = await devicesApi.listMine();
-      const match   = devices.find(
-        (d) =>
-          d.serial_number === this.backendDeviceId ||
-          d.id === this.backendDeviceId
-      );
-      if (!match) return;
-
-      await devicesApi.unassign(match.id);
-      console.info('[BLE] Device unassigned on backend:', match.id);
-    } catch (err: any) {
-      if (err?.response?.status === 404 || err?.response?.status === 204) return;
-      throw err;
-    }
+    await devicesApi.unpairDevice();
+    console.info('[BLE] Device unpaired on backend:', this.backendDeviceId);
   }
 
   // ── Health subscriptions ──────────────────────────────
@@ -217,9 +192,9 @@ class BluetoothService {
 
   // ── Public disconnect ─────────────────────────────────
   async disconnect(): Promise<void> {
-    // Unassign backend first
-    await this.unassignOnBackend().catch((err) =>
-      console.warn('[BLE] Unassign on manual disconnect failed:', err?.message)
+    // Unpair on backend before dropping the BLE connection
+    await this.unpairOnBackend().catch((err) =>
+      console.warn('[BLE] Unpair on manual disconnect failed:', err?.message)
     );
 
     if (this.connectedDevice) {

@@ -12,12 +12,11 @@ import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { IncidentStatus, IncidentTimelineEntry } from '@/types/api';
 import { useThemedStyles } from '@/utils/themedStyles';
+import { useColors } from '@/context/ThemeContext';
 
 const STATUS_ORDER: IncidentStatus[] = [
   'OPEN', 'IN_PROGRESS', 'ESCALATED', 'RESOLVED', 'CLOSED',
 ];
-
-const t = useThemedStyles();
 
 // ─── Timeline step ────────────────────────────────────
 
@@ -30,6 +29,7 @@ function TimelineStep({
   isLast: boolean;
   index: number;
 }) {
+  const C = useColors();
   const isTerminal = ['RESOLVED', 'CLOSED', 'CANCELLED', 'REJECTED'].includes(entry.status);
 
   return (
@@ -59,12 +59,12 @@ function TimelineStep({
             variant={incidentVariant(entry.status as IncidentStatus)}
             size="sm"
           />
-          <Text style={[styles.timelineTime, t.textMuted]}>
+          <Text style={[styles.timelineTime, { color: C.textMuted }]}>
             {format(new Date(entry.changed_at), 'MMM d, HH:mm')}
           </Text>
         </View>
         {entry.note && (
-          <Text style={[styles.timelineNote, t.textSecondary]}>{entry.note}</Text>
+          <Text style={[styles.timelineNote, { color: C.textSecondary }]}>{entry.note}</Text>
         )}
       </View>
     </Animated.View>
@@ -72,12 +72,13 @@ function TimelineStep({
 }
 
 function InfoRow({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+  const C = useColors();
   return (
     <View style={styles.infoRow}>
       <View style={styles.infoIcon}>{icon}</View>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.infoLabel, t.textPrimColor]}>{label}</Text>
-        <Text style={[styles.infoValue, t.textMuted]}>{value}</Text>
+        <Text style={[styles.infoLabel, { color: C.textMuted }]}>{label}</Text>
+        <Text style={[styles.infoValue, { color: C.textPrimary }]}>{value}</Text>
       </View>
     </View>
   );

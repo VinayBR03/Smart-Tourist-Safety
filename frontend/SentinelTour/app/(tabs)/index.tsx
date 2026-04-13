@@ -21,8 +21,7 @@ import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { IncidentSummary, ZoneWithStatus } from '@/types/api';
 import { useThemedStyles } from '@/utils/themedStyles';
-
-const t = useThemedStyles();
+import { useColors } from '@/context/ThemeContext';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -225,12 +224,13 @@ export default function HomeScreen() {
 }
 
 function SectionHeader({ title, actionLabel, onAction }: { title: string; actionLabel?: string; onAction?: () => void }) {
+  const C = useColors();
   return (
     <View style={styles.sectionHeader}>
-      <Text style={[styles.sectionTitle, t.textPrimary]}>{title}</Text>
+      <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>{title}</Text>
       {actionLabel && onAction && (
         <TouchableOpacity onPress={onAction} style={styles.sectionActionBtn}>
-          <Text style={[styles.sectionAction, t.textPrimColor]}>{actionLabel}</Text>
+          <Text style={[styles.sectionAction, { color: C.textPrimary }]}>{actionLabel}</Text>
           <Icon.ChevronRight size={14} color={Colors.primary} />
         </TouchableOpacity>
       )}
@@ -239,25 +239,26 @@ function SectionHeader({ title, actionLabel, onAction }: { title: string; action
 }
 
 function ZoneCard({ zone, index }: { zone: ZoneWithStatus; index: number }) {
+  const C = useColors();
   const risk = zone.status?.risk_level ?? 'LOW';
   const riskColors: Record<string, string> = {
     LOW: Colors.riskLow, MEDIUM: Colors.riskMedium, HIGH: Colors.riskHigh,
   };
   return (
     <Animated.View entering={FadeInRight.duration(350).delay(index * 60)}>
-      <TouchableOpacity style={[styles.zoneCard, t.surface, t.border]} onPress={() => router.push('/(tabs)/map')} activeOpacity={0.8}>
+      <TouchableOpacity style={[styles.zoneCard, { backgroundColor: C.surface, borderColor: C.border }]} onPress={() => router.push('/(tabs)/map')} activeOpacity={0.8}>
         <View style={[styles.zoneAccent, { backgroundColor: riskColors[risk] }]} />
         <View style={styles.zoneCardContent}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.zoneName, t.textPrimary]} numberOfLines={1}>{zone.name}</Text>
-            <Text style={[styles.zoneType, t.textMuted]}>{zone.zone_type}</Text>
+            <Text style={[styles.zoneName, { color: C.textPrimary }]} numberOfLines={1}>{zone.name}</Text>
+            <Text style={[styles.zoneType, { color: C.textMuted }]}>{zone.zone_type}</Text>
           </View>
           <View style={styles.zoneRight}>
             <Badge label={risk} variant={riskVariant(risk)} size="sm" dot />
             {zone.status && (
               <View style={styles.zoneCountRow}>
                 <Icon.User size={11} color={Colors.textMuted} />
-                <Text style={styles.zoneCount}>{zone.status.tourist_count}</Text>
+                <Text style={[styles.zoneCount, { color: C.textMuted }]}>{zone.status.tourist_count}</Text>
               </View>
             )}
           </View>
@@ -268,6 +269,7 @@ function ZoneCard({ zone, index }: { zone: ZoneWithStatus; index: number }) {
 }
 
 function IncidentRow({ incident, index }: { incident: IncidentSummary; index: number }) {
+  const C = useColors();
   const statusColors: Record<string, string> = {
     OPEN: Colors.error, IN_PROGRESS: Colors.warning, RESOLVED: Colors.success,
     ESCALATED: Colors.error, CLOSED: Colors.textMuted, CANCELLED: Colors.textMuted, REJECTED: Colors.textMuted,
@@ -275,16 +277,16 @@ function IncidentRow({ incident, index }: { incident: IncidentSummary; index: nu
   return (
     <Animated.View entering={FadeInDown.duration(350).delay(index * 60)}>
       <TouchableOpacity
-        style={[styles.incidentRow, t.surface, t.border]}
+        style={[styles.incidentRow, { backgroundColor: C.surface, borderColor: C.border }]}
         onPress={() => router.push(`/incidents/${incident.id}`)}
         activeOpacity={0.8}
       >
         <View style={[styles.incidentDot, { backgroundColor: statusColors[incident.status] ?? Colors.textMuted }]} />
         <View style={{ flex: 1 }}>
-          <Text style={[styles.incidentDesc, t.textPrimary]} numberOfLines={1}>
+          <Text style={[styles.incidentDesc, { color: C.textPrimary }]} numberOfLines={1}>
             {incident.description ?? `Incident #${incident.id}`}
           </Text>
-          <Text style={[styles.incidentMeta, t.textMuted]}>
+          <Text style={[styles.incidentMeta, { color: C.textMuted }]}>
             {incident.source} · {formatDistanceToNow(new Date(incident.created_at), { addSuffix: true })}
           </Text>
         </View>
@@ -299,21 +301,23 @@ function IncidentRow({ incident, index }: { incident: IncidentSummary; index: nu
 }
 
 function QuickAction({ icon, label, color, onPress }: { icon: React.ReactNode; label: string; color: string; onPress: () => void }) {
+  const C = useColors();
   return (
     <TouchableOpacity style={styles.quickAction} onPress={onPress} activeOpacity={0.8}>
       <View style={[styles.quickActionIcon, { backgroundColor: `${color}18`, borderColor: `${color}30` }]}>
         {icon}
       </View>
-      <Text style={[styles.quickActionLabel, t.textSecondary]}>{label}</Text>
+      <Text style={[styles.quickActionLabel, { color: C.textSecondary }]}>{label}</Text>
     </TouchableOpacity>
   );
 }
 
 function NoDataCard({ icon, message, action }: { icon: React.ReactNode; message: string; action?: { label: string; onPress: () => void } }) {
+  const C = useColors();
   return (
     <Card style={styles.noData}>
       <View style={styles.noDataIcon}>{icon}</View>
-      <Text style={[styles.noDataText, t.textMuted]}>{message}</Text>
+      <Text style={[styles.noDataText, { color: C.textMuted }]}>{message}</Text>
       {action && (
         <TouchableOpacity style={styles.noDataBtn} onPress={action.onPress}>
           <Text style={styles.noDataBtnText}>{action.label}</Text>

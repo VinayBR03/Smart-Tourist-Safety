@@ -20,8 +20,7 @@ import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { IncidentStatus, IncidentSummary } from '@/types/api';
 import { useThemedStyles } from '@/utils/themedStyles';
-
-const t = useThemedStyles();
+import { useColors } from '@/context/ThemeContext';
 
 const FILTERS: { label: string; value: IncidentStatus | 'ALL' }[] = [
   { label: 'All',         value: 'ALL'         },
@@ -41,10 +40,11 @@ const SOURCE_ICONS: Record<string, React.ReactNode> = {
 };
 
 function IncidentCard({ item, index }: { item: IncidentSummary; index: number }) {
+  const C = useColors();
   return (
     <Animated.View entering={FadeInDown.duration(350).delay(index * 50)}>
       <TouchableOpacity
-        style={[styles.card, t.surface, t.border]}
+        style={[styles.card, { backgroundColor: C.surface, borderColor: C.border }]}
         onPress={() => router.push(`/incidents/${item.id}`)}
         activeOpacity={0.82}
       >
@@ -56,7 +56,7 @@ function IncidentCard({ item, index }: { item: IncidentSummary; index: number })
           <View style={styles.cardTop}>
             <View style={styles.sourceChip}>
               {SOURCE_ICONS[item.source] ?? <Icon.Info size={13} color={Colors.textMuted} />}
-              <Text style={styles.sourceLabel}>{item.source}</Text>
+              <Text style={[styles.sourceLabel, { color: C.textMuted }]}>{item.source}</Text>
             </View>
             <Badge
               label={item.status.replace('_', ' ')}
@@ -68,21 +68,21 @@ function IncidentCard({ item, index }: { item: IncidentSummary; index: number })
 
           {/* Description */}
           <Text style={styles.cardDesc} numberOfLines={2}>
-            {item.description ?? `Incident #${item.id}`}
+            {item.description ?? `Incident ${item.id}`}
           </Text>
 
           {/* Bottom row */}
           <View style={styles.cardBottom}>
             <View style={styles.cardMeta}>
               <Icon.Clock size={12} color={Colors.textMuted} />
-              <Text style={[styles.cardMetaText, t.textMuted]}>
+              <Text style={[styles.cardMetaText, { color: C.textMuted }]}>
                 {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
               </Text>
             </View>
             {item.latitude && item.longitude && (
               <View style={styles.cardMeta}>
                 <Icon.MapPin size={12} color={Colors.textMuted} />
-                <Text style={[styles.cardMetaText, t.textMuted]}>
+                <Text style={[styles.cardMetaText, { color: C.textMuted }]}>
                   {item.latitude.toFixed(4)}, {item.longitude.toFixed(4)}
                 </Text>
               </View>

@@ -30,9 +30,7 @@ import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 import type { UserLanguage } from '@/types/api';
 import { wsClient } from '@/utils/websocket';
 import { useThemedStyles } from '@/utils/themedStyles';
-import { useTheme } from '@react-navigation/native';
-
-const t = useThemedStyles()
+import { useColors } from '@/context/ThemeContext';
 
 // ─── Step schemas ─────────────────────────────────────────
 const step1Schema = z.object({
@@ -255,11 +253,12 @@ export default function RegisterScreen() {
 
 // ─── Step Header ──────────────────────────────────────────
 function StepHeader({ step, title, subtitle }: { step: number; title: string; subtitle: string }) {
+  const C = useColors();
   return (
     <View style={styles.stepHeader}>
-      <Text style={styles.stepLabel}>Step {step} of 3</Text>
-      <Text style={[styles.stepTitle, t.textPrimary]}>{title}</Text>
-      <Text style={[styles.stepSubtitle, t.textSecondary]}>{subtitle}</Text>
+      <Text style={[styles.stepLabel, { color: C.primary }]}>Step {step} of 3</Text>
+      <Text style={[styles.stepTitle, { color: C.textPrimary }]}>{title}</Text>
+      <Text style={[styles.stepSubtitle, { color: C.textSecondary }]}>{subtitle}</Text>
     </View>
   );
 }
@@ -274,9 +273,10 @@ function Field({
   error?: string;
   children: React.ReactNode;
 }) {
+  const C = useColors();
   return (
     <View style={styles.fieldGroup}>
-      <Text style={[styles.label, t.textSecondary]}>{label}</Text>
+      <Text style={[styles.label, { color: C.textSecondary }]}>{label}</Text>
       {children}
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
@@ -304,10 +304,11 @@ function InputBox({
   error?: boolean;
   rightEl?: React.ReactNode;
 }) {
+  const C = useColors();
   return (
-    <View style={[styles.inputWrapper, error && styles.inputError, t.surface, t.border]}>
+    <View style={[styles.inputWrapper, { backgroundColor: C.surface, borderColor: error ? C.error : C.border }]}>
       <TextInput
-        style={styles.input}
+        style={[styles.input, { color: C.textPrimary }]}
         value={value}
         onChangeText={onChange}
         onBlur={onBlur}
@@ -332,15 +333,16 @@ function ChipSelector({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const C = useColors();
   return (
     <View style={styles.chipRow}>
       {options.map((opt) => (
         <TouchableOpacity
           key={opt}
-          style={[styles.chip, value === opt && styles.chipSelected]}
+          style={[styles.chip, { backgroundColor: C.surface, borderColor: C.border }, value === opt && { backgroundColor: 'rgba(59,130,246,0.12)', borderColor: C.primary }]}
           onPress={() => onChange(opt)}
         >
-          <Text style={[styles.chipText, value === opt && styles.chipTextSelected]}>{opt}</Text>
+          <Text style={[styles.chipText, { color: value === opt ? C.primary : C.textSecondary }]}>{opt}</Text>
         </TouchableOpacity>
       ))}
     </View>

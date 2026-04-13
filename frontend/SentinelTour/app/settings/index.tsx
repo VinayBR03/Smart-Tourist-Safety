@@ -14,13 +14,12 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { authApi } from '@/api/auth';
 import { wsClient } from '@/utils/websocket';
-import { i18n } from '@/utils/i18n';
+import { i18n, useTranslation } from '@/utils/i18n';
 import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 import type { UserLanguage } from '@/types/api';
 import { useTheme } from '@/hooks/useTheme';
 import { useThemedStyles } from '@/utils/themedStyles';
-
-const t = useThemedStyles();
+import { useColors } from '@/context/ThemeContext';
 
 const LANGUAGES: { code: UserLanguage; label: string; native: string }[] = [
   { code: 'en', label: 'English',   native: 'English'  },
@@ -35,6 +34,7 @@ function SettingRow({ icon, label, subtitle, onPress, danger, rightEl }: {
   icon: React.ReactNode; label: string; subtitle?: string;
   onPress?: () => void; danger?: boolean; rightEl?: React.ReactNode;
 }) {
+  const C = useColors();
   return (
     <TouchableOpacity
       style={styles.settingRow}
@@ -42,10 +42,10 @@ function SettingRow({ icon, label, subtitle, onPress, danger, rightEl }: {
       activeOpacity={onPress ? 0.75 : 1}
       disabled={!onPress && !rightEl}
     >
-      <View style={[styles.settingRowIcon, danger && styles.settingRowIconDanger, t.surfaceAlt]}>{icon}</View>
+      <View style={[styles.settingRowIcon, { backgroundColor: danger ? 'rgba(239,68,68,0.1)' : C.surfaceAlt },]}>{icon}</View>
       <View style={styles.settingRowContent}>
-        <Text style={[styles.settingRowLabel, t.textPrimary, danger && styles.settingRowLabelDanger]}>{label}</Text>
-        {subtitle && <Text style={[styles.settingRowSub, t.textMuted]}>{subtitle}</Text>}
+        <Text style={[styles.settingRowLabel, { color: danger ? C.error : C.textPrimary }]}>{label}</Text>
+        {subtitle && <Text style={[styles.settingRowSub, { color: C.textMuted }]}>{subtitle}</Text>}
       </View>
       {rightEl ?? (onPress && <Icon.ChevronRight size={18} color={Colors.textMuted} />)}
     </TouchableOpacity>
@@ -53,7 +53,8 @@ function SettingRow({ icon, label, subtitle, onPress, danger, rightEl }: {
 }
 
 function SectionHeader({ title }: { title: string }) {
-  return <Text style={[styles.sectionHeader, t.textMuted]}>{title}</Text>;
+  const C = useColors();
+  return <Text style={[styles.sectionHeader, { color: C.textMuted }]}>{title}</Text>;
 }
 
 function RowDivider() {
@@ -61,6 +62,7 @@ function RowDivider() {
 }
 
 function ChangePasswordSheet({ onClose }: { onClose: () => void }) {
+  const C = useColors();
   const [current, setCurrent] = useState('');
   const [next,    setNext]    = useState('');
   const [confirm, setConfirm] = useState('');
@@ -78,17 +80,17 @@ function ChangePasswordSheet({ onClose }: { onClose: () => void }) {
   });
 
   return (
-    <View style={[styles.root, t.surfaceAlt, t.border]}>
+    <View style={[styles.root, { backgroundColor: C.surfaceAlt, borderColor: C.border }]}>
       <View style={styles.sheetHandle} />
-      <Text style={[styles.sheetTitle, t.textPrimary]}>Change Password</Text>
+      <Text style={[styles.sheetTitle, { color: C.textPrimary }]}>Change Password</Text>
       {[
         { label: 'Current Password', value: current, onChange: setCurrent },
         { label: 'New Password',     value: next,    onChange: setNext    },
         { label: 'Confirm Password', value: confirm, onChange: setConfirm },
       ].map((f) => (
         <View key={f.label} style={styles.sheetField}>
-          <Text style={[styles.sheetFieldLabel, t.textSecondary]}>{f.label}</Text>
-          <View style={[styles.sheetInput, t.surface, t.border]}>
+          <Text style={[styles.sheetFieldLabel, { color: C.textSecondary }]}>{f.label}</Text>
+          <View style={[styles.sheetInput, { backgroundColor: C.surface, borderColor: C.border }]}>
             <TextInput
               style={styles.sheetInputText}
               value={f.value} onChangeText={f.onChange}
@@ -105,7 +107,7 @@ function ChangePasswordSheet({ onClose }: { onClose: () => void }) {
       </TouchableOpacity>
       <View style={styles.sheetActions}>
         <TouchableOpacity style={styles.sheetCancelBtn} onPress={onClose}>
-          <Text style={[styles.sheetCancelText, t.textSecondary]}>Cancel</Text>
+          <Text style={[styles.sheetCancelText,  { color: C.textSecondary }]}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.sheetSubmitBtn, mutation.isPending && styles.btnDisabled]}
@@ -122,6 +124,7 @@ function ChangePasswordSheet({ onClose }: { onClose: () => void }) {
 }
 
 function LanguagePicker({ current, onSelect }: { current: UserLanguage; onSelect: (lang: UserLanguage) => void }) {
+  const C = useColors();
   return (
     <View style={styles.langGrid}>
       {LANGUAGES.map((lang) => (
@@ -130,8 +133,8 @@ function LanguagePicker({ current, onSelect }: { current: UserLanguage; onSelect
           style={[styles.langChip, current === lang.code && styles.langChipActive]}
           onPress={() => onSelect(lang.code)}
         >
-          <Text style={[styles.langChipNative, current === lang.code && styles.langChipActiveText, t.textPrimary]}>{lang.native}</Text>
-          <Text style={[styles.langChipLabel,  current === lang.code && styles.langChipActiveText, t.textMuted]}>{lang.label}</Text>
+          <Text style={[styles.langChipNative, { color: current === lang.code ? C.primary : C.textPrimary }]}>{lang.native}</Text>
+          <Text style={[styles.langChipLabel,  current === lang.code && styles.langChipActiveText, { color: C.textMuted }]}>{lang.label}</Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -139,6 +142,7 @@ function LanguagePicker({ current, onSelect }: { current: UserLanguage; onSelect
 }
 
 export default function SettingsScreen() {
+  const { t: i18nT } = useTranslation();
   const t = useThemedStyles();
   const { C } = useTheme();
   const { user, logout, setUser } = useAuthStore();
@@ -226,7 +230,7 @@ export default function SettingsScreen() {
 
         {/* ── Appearance ────────────────────────────────── */}
         <Animated.View entering={FadeInDown.duration(400).delay(40)}>
-          <SectionHeader title="Appearance" />
+          <SectionHeader title={i18nT('appearance')} />
           <Card>
             <SettingRow
               icon={
@@ -234,8 +238,8 @@ export default function SettingsScreen() {
                   ? <Icon.Moon size={20} color={Colors.primary} />
                   : <Icon.Sun  size={20} color={Colors.warning} />
               }
-              label={theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
-              subtitle={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              label={theme === 'dark' ? i18nT('darkMode') : i18nT('lightMode')}
+              subtitle={theme === 'dark' ? i18nT('switchToLight') : i18nT('switchToDark')}
               rightEl={
                 <Switch
                   value={theme === 'dark'}
@@ -250,11 +254,11 @@ export default function SettingsScreen() {
 
         {/* ── Language ──────────────────────────────────── */}
         <Animated.View entering={FadeInDown.duration(400).delay(80)}>
-          <SectionHeader title="Language" />
+          <SectionHeader title={i18nT('language')} />
           <Card>
             <SettingRow
               icon={<Icon.Globe size={20} color={Colors.primary} />}
-              label="App Language"
+              label={i18nT('appLanguage')}
               subtitle={LANGUAGES.find((l) => l.code === currentLang)?.native ?? 'English'}
               onPress={() => setShowLangPicker((p) => !p)}
               rightEl={
@@ -277,7 +281,7 @@ export default function SettingsScreen() {
 
         {/* ── Security ──────────────────────────────────── */}
         <Animated.View entering={FadeInDown.duration(400).delay(120)}>
-          <SectionHeader title="Security" />
+          <SectionHeader title={i18nT('security')} />
           <Card>
             <SettingRow
               icon={<Icon.Lock size={20} color={Colors.primary} />}
@@ -295,7 +299,7 @@ export default function SettingsScreen() {
 
         {/* ── About ─────────────────────────────────────── */}
         <Animated.View entering={FadeInDown.duration(400).delay(160)}>
-          <SectionHeader title="About" />
+          <SectionHeader title={i18nT('about')} />
           <Card>
             <SettingRow
               icon={<Icon.Shield size={20} color={Colors.accent} />}
@@ -315,7 +319,7 @@ export default function SettingsScreen() {
 
         {/* ── Account / danger zone ─────────────────────── */}
         <Animated.View entering={FadeInDown.duration(400).delay(200)}>
-          <SectionHeader title="Account" />
+          <SectionHeader title={i18nT('account')} />
           <Card>
             <SettingRow
               icon={<Icon.LogOut size={20} color={Colors.error} />}

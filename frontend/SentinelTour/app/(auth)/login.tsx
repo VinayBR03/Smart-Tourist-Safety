@@ -23,8 +23,8 @@ import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 import { Icon } from '@/components/ui/Icons';
 import { wsClient } from '@/utils/websocket';
 import { useThemedStyles } from '@/utils/themedStyles';
-
-const t = useThemedStyles();
+import { useColors } from '@/context/ThemeContext';
+import { i18n, normaliseLanguage, useTranslation } from '@/utils/i18n';
 
 const logo = require('../../assets/logo.png');
 
@@ -35,12 +35,14 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function LoginScreen() {
-  const t = useThemedStyles();
+  const ts = useThemedStyles();
+  const C  = useColors();
+  const { t } = useTranslation();
   const { setUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [showPw,  setShowPw]  = useState(false);
 
-  const shakeX   = useSharedValue(0);
+  const shakeX     = useSharedValue(0);
   const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shakeX.value }] }));
 
   const { control, handleSubmit, formState: { errors } } = useForm<FormData>({
@@ -58,6 +60,7 @@ export default function LoginScreen() {
 
       const user = await authApi.me();
       setUser(user);
+      i18n.setLanguage(normaliseLanguage(user.preferred_language));
       wsClient.connect();
       router.replace('/(tabs)');
     } catch (err: any) {
@@ -76,7 +79,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, t.bg]}>
+    <SafeAreaView style={[styles.safe, ts.bg]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           contentContainerStyle={styles.scroll}
@@ -87,24 +90,25 @@ export default function LoginScreen() {
           <View style={styles.header}>
             <Image source={logo} style={styles.logo} resizeMode="contain" />
             <Text style={styles.brandName}>SENTINEL TOUR</Text>
-            <Text style={[styles.title, t.textPrimary]}>Welcome back</Text>
-            <Text style={[styles.subtitle, t.textSecondary]}>Sign in to continue your safe journey</Text>
+            <Text style={[styles.title, ts.textPrimary]}>{t('welcome')}</Text>
+            <Text style={[styles.subtitle, ts.textSecondary]}>Sign in to continue your safe journey</Text>
           </View>
 
           {/* Form */}
           <Animated.View style={[styles.form, shakeStyle]}>
+
             {/* Email */}
             <View style={styles.fieldGroup}>
-              <Text style={[styles.label, t.textSecondary]}>Email Address</Text>
+              <Text style={[styles.label, ts.textSecondary]}>{t('email')}</Text>
               <Controller
                 control={control} name="email"
                 render={({ field: { onChange, value, onBlur } }) => (
-                  <View style={[styles.inputWrapper, t.surface, t.border, errors.email && styles.inputError]}>
-                    <Icon.User size={17} color={Colors.textMuted} />
+                  <View style={[styles.inputWrapper, { backgroundColor: C.surface, borderColor: errors.email ? C.error : C.border }]}>
+                    <Icon.User size={17} color={C.textMuted} />
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { color: C.textPrimary }]}
                       placeholder="your@email.com"
-                      placeholderTextColor={Colors.textMuted}
+                      placeholderTextColor={C.textMuted}
                       value={value} onChangeText={onChange} onBlur={onBlur}
                       keyboardType="email-address" autoCapitalize="none" autoCorrect={false}
                     />
@@ -116,23 +120,21 @@ export default function LoginScreen() {
 
             {/* Password */}
             <View style={styles.fieldGroup}>
-              <View style={styles.labelRow}>
-                <Text style={[styles.label, t.textSecondary]}>Password</Text>
-              </View>
+              <Text style={[styles.label, ts.textSecondary]}>{t('password')}</Text>
               <Controller
                 control={control} name="password"
                 render={({ field: { onChange, value, onBlur } }) => (
-                  <View style={[styles.inputWrapper, t.surface, t.border, errors.password && styles.inputError]}>
-                    <Icon.Lock size={17} color={Colors.textMuted} />
+                  <View style={[styles.inputWrapper, { backgroundColor: C.surface, borderColor: errors.password ? C.error : C.border }]}>
+                    <Icon.Lock size={17} color={C.textMuted} />
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { color: C.textPrimary }]}
                       placeholder="••••••••"
-                      placeholderTextColor={Colors.textMuted}
+                      placeholderTextColor={C.textMuted}
                       value={value} onChangeText={onChange} onBlur={onBlur}
                       secureTextEntry={!showPw}
                     />
                     <TouchableOpacity onPress={() => setShowPw((p) => !p)}>
-                      <Icon.Eye size={17} color={Colors.textMuted} showPw={showPw} />
+                      <Icon.Eye size={17} color={C.textMuted} showPw={showPw} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -151,21 +153,21 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
+              <View style={[styles.dividerLine, { backgroundColor: C.border }]} />
+              <Text style={[styles.dividerText, { color: C.textMuted }]}>or</Text>
+              <View style={[styles.dividerLine, { backgroundColor: C.border }]} />
             </View>
 
             <TouchableOpacity
-              style={[styles.secondaryBtn, t.border]}
+              style={[styles.secondaryBtn, { borderColor: C.border }]}
               onPress={() => router.push('/(auth)/language-select')}
               activeOpacity={0.8}
             >
-              <Text style={styles.secondaryBtnText}>Create New Account</Text>
+              <Text style={[styles.secondaryBtnText, { color: C.textPrimary }]}>{t('register')}</Text>
             </TouchableOpacity>
           </Animated.View>
 
-          <Text style={[styles.footer, t.textMuted]}>Sentinel Tour · Tourist Safety System</Text>
+          <Text style={[styles.footer, ts.textMuted]}>Sentinel Tour · Tourist Safety System</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -173,7 +175,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: Colors.background },
+  safe:   { flex: 1 },
   scroll: { flexGrow: 1, paddingHorizontal: Spacing.base, paddingBottom: Spacing['3xl'] },
   header: { alignItems: 'center', paddingTop: Spacing['3xl'], paddingBottom: Spacing['2xl'] },
   logo:   { width: 80, height: 80, marginBottom: Spacing.md },
@@ -183,24 +185,21 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: Typography['3xl'], fontFamily: 'SpaceGrotesk_700Bold',
-    color: Colors.textPrimary, marginBottom: Spacing.xs,
+    marginBottom: Spacing.xs,
   },
   subtitle: {
     fontSize: Typography.base, fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary, textAlign: 'center',
+    textAlign: 'center',
   },
   form:       { gap: Spacing.base },
   fieldGroup: { gap: Spacing.xs },
-  label:      { fontSize: Typography.sm, fontFamily: 'Inter_500Medium', color: Colors.textSecondary, letterSpacing: 0.3 },
-  labelRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  label:      { fontSize: Typography.sm, fontFamily: 'Inter_500Medium', letterSpacing: 0.3 },
   inputWrapper: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.surface, borderRadius: Radius.lg,
-    borderWidth: 1, borderColor: Colors.border,
+    borderRadius: Radius.lg, borderWidth: 1,
     paddingHorizontal: Spacing.md, height: 52, gap: Spacing.sm,
   },
-  inputError: { borderColor: Colors.error },
-  input: { flex: 1, color: Colors.textPrimary, fontFamily: 'Inter_400Regular', fontSize: Typography.base },
+  input: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: Typography.base },
   errorText: { fontSize: Typography.xs, fontFamily: 'Inter_400Regular', color: Colors.error, marginTop: 2 },
   btn: {
     height: 54, backgroundColor: Colors.primary, borderRadius: Radius.lg,
@@ -209,15 +208,15 @@ const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.6 },
   btnText: { color: '#fff', fontSize: Typography.md, fontFamily: 'SpaceGrotesk_600SemiBold', letterSpacing: 0.5 },
   divider: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginVertical: Spacing.xs },
-  dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
-  dividerText: { fontSize: Typography.sm, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: { fontSize: Typography.sm, fontFamily: 'Inter_400Regular' },
   secondaryBtn: {
-    height: 54, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: Colors.border,
+    height: 54, borderRadius: Radius.lg, borderWidth: 1.5,
     alignItems: 'center', justifyContent: 'center',
   },
-  secondaryBtnText: { color: Colors.textPrimary, fontSize: Typography.md, fontFamily: 'SpaceGrotesk_600SemiBold' },
+  secondaryBtnText: { fontSize: Typography.md, fontFamily: 'SpaceGrotesk_600SemiBold' },
   footer: {
     textAlign: 'center', fontSize: Typography.xs, fontFamily: 'Inter_400Regular',
-    color: Colors.textMuted, marginTop: Spacing['3xl'], letterSpacing: 0.5,
+    marginTop: Spacing['3xl'], letterSpacing: 0.5,
   },
 });
