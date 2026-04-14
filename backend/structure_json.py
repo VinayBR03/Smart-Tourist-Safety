@@ -26,5 +26,5 @@ def save_structure_to_json(root_path, output_file):
         json.dump(structure, f, indent=4, ensure_ascii=False)
 
 if __name__ == "__main__":
-    save_structure_to_json('c:\\Users\\Vinay B R\\Desktop\\Smart Tourist Safety System\\iot', 'folder_structure.json')
+    save_structure_to_json('c:\\Users\\Vinay B R\\Desktop\\Smart Tourist Safety System\\frontend\\sentineltour', 'folder_structure.json')
     print("Clean JSON structure generated!")

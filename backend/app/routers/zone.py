@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
-from app.core.dependencies import require_roles
+from app.core.dependencies import get_current_user, require_roles
 from app.core.enums import UserRole
 
 from app.models.user import User
@@ -58,7 +58,7 @@ def create_circular_zone_endpoint(
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ):
     try:
-        return create_circular_zone(
+        circle = create_circular_zone(
             db=db,
             name=payload.name,
             zone_type=payload.zone_type,
@@ -66,6 +66,10 @@ def create_circular_zone_endpoint(
             center_longitude=payload.center_longitude,
             radius_meters=payload.radius_meters,
         )
+        db.commit()
+        db.refresh(circle)
+        return circle
+    
     except ValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -93,12 +97,16 @@ def create_polygon_zone_endpoint(
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ):
     try:
-        return create_polygon_zone(
+        polygon = create_polygon_zone(
             db=db,
             name=payload.name,
             zone_type=payload.zone_type,
             coordinates=payload.coordinates,
         )
+        db.commit()
+        db.refresh(polygon)
+        return polygon
+    
     except ValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -122,7 +130,7 @@ def create_polygon_zone_endpoint(
 )
 def fetch_zones(
     db: Session = Depends(get_db),
-    _: User = Depends(require_roles(UserRole.ADMIN, UserRole.AUTHORITY)),
+    _: User = Depends(get_current_user),
 ):
     return list_zones(db)
 
