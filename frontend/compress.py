@@ -25,6 +25,7 @@ def zip_folder(folder_path, output_zip):
                 arcname = os.path.relpath(file_path, folder_path)
                 
                 zipf.write(file_path, arcname)
+    print(f"Compressed: {output_zip}")
 
 # Usage
-zip_folder('../backend/app', 'backend.zip')
+zip_folder('./sentineltour', 'sentineltour-app.zip')

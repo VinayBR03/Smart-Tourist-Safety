@@ -19,12 +19,12 @@ import { authApi } from '@/api/auth';
 import { useAuthStore } from '@/store/authStore';
 import { SecureStorage } from '@/utils/storage';
 import { Config } from '@/constants/config';
-import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
+import { Typography, Spacing, Radius } from '@/constants/theme';
 import { Icon } from '@/components/ui/Icons';
 import { wsClient } from '@/utils/websocket';
 import { useThemedStyles } from '@/utils/themedStyles';
 import { useColors } from '@/context/ThemeContext';
-import { i18n, normaliseLanguage, useTranslation } from '@/utils/i18n';
+import { i18n, normaliseLanguage } from '@/utils/i18n';
 
 const logo = require('../../assets/logo.png');
 
@@ -35,9 +35,8 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function LoginScreen() {
-  const ts = useThemedStyles();
-  const C  = useColors();
-  const { t } = useTranslation();
+  const t = useThemedStyles();
+  const C = useColors();
   const { setUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [showPw,  setShowPw]  = useState(false);
@@ -54,10 +53,8 @@ export default function LoginScreen() {
     try {
       const deviceInfo = `${Platform.OS} ${Constants.osVersion ?? ''}`.trim();
       const tokens = await authApi.login({ ...data, device_info: deviceInfo });
-
       await SecureStorage.set(Config.ACCESS_TOKEN_KEY, tokens.access_token);
       await SecureStorage.set(Config.REFRESH_TOKEN_KEY, tokens.refresh_token);
-
       const user = await authApi.me();
       setUser(user);
       i18n.setLanguage(normaliseLanguage(user.preferred_language));
@@ -79,7 +76,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, ts.bg]}>
+    <SafeAreaView style={[styles.safe, t.bg]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           contentContainerStyle={styles.scroll}
@@ -90,8 +87,8 @@ export default function LoginScreen() {
           <View style={styles.header}>
             <Image source={logo} style={styles.logo} resizeMode="contain" />
             <Text style={styles.brandName}>SENTINEL TOUR</Text>
-            <Text style={[styles.title, ts.textPrimary]}>{t('welcome')}</Text>
-            <Text style={[styles.subtitle, ts.textSecondary]}>Sign in to continue your safe journey</Text>
+            <Text style={[styles.title, t.textPrimary]}>Welcome Back</Text>
+            <Text style={[styles.subtitle, t.textSecondary]}>Sign in to continue your safe journey</Text>
           </View>
 
           {/* Form */}
@@ -99,11 +96,14 @@ export default function LoginScreen() {
 
             {/* Email */}
             <View style={styles.fieldGroup}>
-              <Text style={[styles.label, ts.textSecondary]}>{t('email')}</Text>
+              <Text style={[styles.label, t.textSecondary]}>Email Address</Text>
               <Controller
                 control={control} name="email"
                 render={({ field: { onChange, value, onBlur } }) => (
-                  <View style={[styles.inputWrapper, { backgroundColor: C.surface, borderColor: errors.email ? C.error : C.border }]}>
+                  <View style={[styles.inputWrapper, {
+                    backgroundColor: C.surface,
+                    borderColor: errors.email ? C.error : C.border,
+                  }]}>
                     <Icon.User size={17} color={C.textMuted} />
                     <TextInput
                       style={[styles.input, { color: C.textPrimary }]}
@@ -120,11 +120,14 @@ export default function LoginScreen() {
 
             {/* Password */}
             <View style={styles.fieldGroup}>
-              <Text style={[styles.label, ts.textSecondary]}>{t('password')}</Text>
+              <Text style={[styles.label, t.textSecondary]}>Password</Text>
               <Controller
                 control={control} name="password"
                 render={({ field: { onChange, value, onBlur } }) => (
-                  <View style={[styles.inputWrapper, { backgroundColor: C.surface, borderColor: errors.password ? C.error : C.border }]}>
+                  <View style={[styles.inputWrapper, {
+                    backgroundColor: C.surface,
+                    borderColor: errors.password ? C.error : C.border,
+                  }]}>
                     <Icon.Lock size={17} color={C.textMuted} />
                     <TextInput
                       style={[styles.input, { color: C.textPrimary }]}
@@ -134,7 +137,7 @@ export default function LoginScreen() {
                       secureTextEntry={!showPw}
                     />
                     <TouchableOpacity onPress={() => setShowPw((p) => !p)}>
-                      <Icon.Eye size={17} color={C.textMuted} showPw={showPw} />
+                      <Text style={{ fontSize: 16 }}>{showPw ? '🙈' : '👁️'}</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -163,11 +166,11 @@ export default function LoginScreen() {
               onPress={() => router.push('/(auth)/language-select')}
               activeOpacity={0.8}
             >
-              <Text style={[styles.secondaryBtnText, { color: C.textPrimary }]}>{t('register')}</Text>
+              <Text style={[styles.secondaryBtnText, { color: C.textPrimary }]}>Create Account</Text>
             </TouchableOpacity>
           </Animated.View>
 
-          <Text style={[styles.footer, ts.textMuted]}>Sentinel Tour · Tourist Safety System</Text>
+          <Text style={[styles.footer, t.textMuted]}>Sentinel Tour · Tourist Safety System</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -181,11 +184,11 @@ const styles = StyleSheet.create({
   logo:   { width: 80, height: 80, marginBottom: Spacing.md },
   brandName: {
     fontSize: Typography.xs, fontFamily: 'SpaceGrotesk_700Bold',
-    color: Colors.primary, letterSpacing: 3, marginBottom: Spacing.lg,
+    color: '#3B82F6', letterSpacing: 3, marginBottom: Spacing.lg,
   },
   title: {
     fontSize: Typography['3xl'], fontFamily: 'SpaceGrotesk_700Bold',
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.xs, textAlign: 'center',
   },
   subtitle: {
     fontSize: Typography.base, fontFamily: 'Inter_400Regular',
@@ -200,9 +203,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md, height: 52, gap: Spacing.sm,
   },
   input: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: Typography.base },
-  errorText: { fontSize: Typography.xs, fontFamily: 'Inter_400Regular', color: Colors.error, marginTop: 2 },
+  errorText: { fontSize: Typography.xs, fontFamily: 'Inter_400Regular', color: '#EF4444', marginTop: 2 },
   btn: {
-    height: 54, backgroundColor: Colors.primary, borderRadius: Radius.lg,
+    height: 54, backgroundColor: '#3B82F6', borderRadius: Radius.lg,
     alignItems: 'center', justifyContent: 'center', marginTop: Spacing.sm,
   },
   btnDisabled: { opacity: 0.6 },

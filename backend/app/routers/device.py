@@ -2,15 +2,13 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import select as sa_select
 from typing import List
 
 from app.core.database import get_db
-from app.core.dependencies import require_roles, get_current_user
-from app.core.enums import UserRole
+from app.core.dependencies import require_roles
+from app.core.enums import UserRole, DeviceStatus, DeviceType
 
 from app.models.user import User
-from app.models.device_assignment import DeviceAssignment
 
 from app.schemas.device_schema import (
     DeviceRegisterRequest,
@@ -24,15 +22,19 @@ from app.core.exceptions import (
     NotFoundError,
     ValidationError,
     ForbiddenError,
+    ConflictError,
 )
 
 from app.services.device_service import (
     register_device,
     update_device_status,
     assign_device_to_tourist,
+    reassign_tourist_device,
     unassign_device,
     get_device,
+    get_device_by_device_id,
     list_devices,
+    _get_active_assignment,
 )
 
 
@@ -91,40 +93,6 @@ def get_devices(
     """
 
     return list_devices(db)
-
-
-@router.get(
-    "/mine",
-    response_model=List[DeviceSummaryResponse],
-    status_code=status.HTTP_200_OK,
-)
-def get_my_device(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Returns wristband(s) assigned to the currently authenticated tourist.
-    Used by the mobile app's Devices screen.
-    """
-    from app.models.device_assignment import DeviceAssignment
-    from app.models.iot_device import IoTDevice
-    from sqlalchemy import select as sa_select
-
-    stmt = (
-        sa_select(IoTDevice)
-        .join(
-            DeviceAssignment,
-            DeviceAssignment.device_id == IoTDevice.device_id,
-        )
-        .where(
-            DeviceAssignment.tourist_id == current_user.id,
-            DeviceAssignment.unassigned_at.is_(None),
-            IoTDevice.is_deleted.is_(False),
-        )
-    )
-
-    devices = db.execute(stmt).scalars().all()
-    return devices
 
 
 # =========================================================
@@ -214,31 +182,121 @@ def assign_device(
     device_id: str,
     tourist_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
 ):
     """
     Assign device to tourist.
     """
 
-    if current_user.role == UserRole.TOURIST and current_user.id != tourist_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Tourists can only assign devices to themselves.",
-        )
-
     try:
-        assign_device_to_tourist(
+        device = assign_device_to_tourist(
             db,
             device_id=device_id,
             tourist_id=tourist_id,
         )
         db.commit()
+        db.refresh(device)
+        return device
     except (ValidationError, NotFoundError) as e:
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
+
+
+# =========================================================
+# Self-Pair Device (Tourist — called from mobile app on BLE connect)
+#
+# Tourist connects to wristband over BLE, reads device_id from
+# BLE_CHAR_DEVICE_ID_UUID, then calls this endpoint to link it to
+# their own account.
+#
+# - Rejects if the wristband is already assigned to a *different* tourist
+#   (409 Conflict).
+# - If tourist already has a different wristband assigned, that old
+#   assignment is closed atomically (swap wristbands in one step).
+# - Auto-activates INACTIVE devices on first pairing.
+# =========================================================
+
+@router.post(
+    "/{device_id}/pair",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def pair_device_to_self(
+    device_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.TOURIST)),
+):
+    """
+    Tourist pairs a wristband to themselves via the mobile app.
+    Triggered automatically on BLE connect.
+    """
+    try:
+        device = get_device_by_device_id(db, device_id=device_id)
+
+        if device.device_type != DeviceType.WRISTBAND:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only WRISTBAND devices can be self-paired.",
+            )
+
+        # Auto-activate INACTIVE device on first pairing
+        if device.status == DeviceStatus.INACTIVE:
+            update_device_status(
+                db=db,
+                device_id=device_id,
+                status=DeviceStatus.ACTIVE,
+                performed_by=current_user.id,
+            )
+
+        # Use reassign so existing assignment for this tourist is swapped
+        # cleanly, and ConflictError fires if device belongs to someone else.
+        reassign_tourist_device(
+            db=db,
+            tourist_id=current_user.id,
+            new_device_id=device_id,
+            performed_by=current_user.id,
+        )
+
+        db.commit()
+
+    except ConflictError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except (NotFoundError, ValidationError) as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+# =========================================================
+# Self-Unpair Device (Tourist — called from mobile app on BLE disconnect)
+#
+# Closes the active DeviceAssignment for the currently authenticated tourist.
+# Called automatically when BLE drops or tourist taps "Remove".
+# No device_id needed in the URL — resolved from the JWT.
+# =========================================================
+
+@router.post(
+    "/mine/unpair",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def unpair_my_device(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.TOURIST)),
+):
+    """
+    Tourist unpairs their own wristband.
+    Triggered automatically on BLE disconnect or manual Remove.
+    """
+    try:
+        assignment = _get_active_assignment(db, tourist_id=current_user.id)
+        if not assignment:
+            # Already unassigned — idempotent, treat as success
+            return
+
+        unassign_device(db, device_id=assignment.device_id)
+        db.commit()
+
+    except (NotFoundError, ValidationError) as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 # =========================================================
@@ -252,7 +310,7 @@ def assign_device(
 def unassign_device_endpoint(
     device_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
 ):
     """
     Unassign device from current tourist.
@@ -263,14 +321,12 @@ def unassign_device_endpoint(
             db,
             device_id=device_id,
         )
-        db.commit()
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Device not found.",
         )
     except ValidationError as e:
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),

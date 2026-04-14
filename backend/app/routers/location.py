@@ -79,7 +79,8 @@ async def update_my_location(
             accuracy_meters=payload.accuracy_meters,
             battery_percentage=payload.battery_percentage,
         )
-
+        db.commit()
+        db.refresh(location)
         return serialize_location(location)
 
     except ValidationError as e:
@@ -118,8 +119,6 @@ def get_my_latest_location(
             db=db,
             user_id=current_user.id,
         )
-        db.commit()
-        db.refresh(location)
         return serialize_location(location)
 
     except NotFoundError:

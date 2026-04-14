@@ -58,7 +58,7 @@ function AppShell() {
 }
 
 export default function RootLayout() {
-  const hydrateTheme          = useThemeStore((s) => s.hydrate);
+  const hydrateTheme            = useThemeStore((s) => s.hydrate);
   const [themeReady, setThemeReady] = useState(false);
 
   const [fontsLoaded] = useFonts({
@@ -70,7 +70,6 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    // Load persisted theme before rendering anything
     hydrateTheme().finally(() => setThemeReady(true));
   }, []);
 
@@ -78,7 +77,6 @@ export default function RootLayout() {
     if (fontsLoaded && themeReady) SplashScreen.hideAsync();
   }, [fontsLoaded, themeReady]);
 
-  // Wait for both fonts AND theme to be ready
   if (!fontsLoaded || !themeReady) return null;
 
   return (

@@ -217,6 +217,13 @@ class AuthenticatedUserResponse(BaseModel):
     # Profile fields needed by frontend (greeting, display name, etc.)
     full_name: Optional[str] = None
     phone: Optional[str] = None
+    gender:             Optional[str] = None
+    date_of_birth:      Optional[str] = None   # serialised as ISO string
+    nationality:        Optional[str] = None
+    emergency_contact:  Optional[str] = None
+    blood_group:        Optional[str] = None
+    medical_conditions: Optional[str] = None
+    allergies:          Optional[str] = None
     preferred_language: Optional[str] = None
 
     last_login: Optional[datetime] = None
