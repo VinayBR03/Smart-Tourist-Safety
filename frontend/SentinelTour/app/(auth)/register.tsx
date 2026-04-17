@@ -19,6 +19,7 @@ import type { UserLanguage } from '@/types/api';
 import { wsClient } from '@/utils/websocket';
 import { useThemedStyles } from '@/utils/themedStyles';
 import { useColors } from '@/context/ThemeContext';
+import { Icon } from '@/components/ui/Icons';
 
 // ─── Step schemas ─────────────────────────────────────────
 const step1Schema = z.object({
@@ -83,10 +84,15 @@ function CalendarPicker({
 
   const parseDate = () => {
     if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      const [y, m, d] = value.split('-').map(Number);
+      const [y, m] = value.split('-').map(Number);
       return { year: y, month: m - 1 };
     }
-    return { year: 1990, month: 0 };
+
+    const now = new Date();
+    return {
+      year: now.getFullYear(),
+      month: now.getMonth(),
+    };
   };
 
   const [viewYear,  setViewYear]  = useState(() => parseDate().year);
@@ -319,6 +325,7 @@ function ChipSelector({ options, value, onChange }: { options: string[]; value: 
 // ─── Step 1 ───────────────────────────────────────────────
 function Step1Form({ form, showPw, showConfirm, setShowPw, setShowConfirm, onNext }: any) {
   const { control, formState: { errors } } = form;
+  const C = useColors();
   return (
     <View style={styles.formBody}>
       <Field label="Email Address" error={errors.email?.message}>
@@ -332,7 +339,12 @@ function Step1Form({ form, showPw, showConfirm, setShowPw, setShowConfirm, onNex
           render={({ field: { onChange, value, onBlur } }) => (
             <InputBox value={value} onChange={onChange} onBlur={onBlur} placeholder="Min 8 chars, upper, lower, number, symbol"
               secureTextEntry={!showPw} error={!!errors.password}
-              rightEl={<TouchableOpacity onPress={() => setShowPw((p: boolean) => !p)}><Text style={{ fontSize: 16 }}>{showPw ? '🙈' : '👁️'}</Text></TouchableOpacity>}
+              rightEl={<TouchableOpacity
+                          onPress={() => setShowPw((p:boolean) => !p)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Icon.Eye size={20} color={C.textMuted} showPw={showPw} />
+                        </TouchableOpacity>}
             />
           )} />
       </Field>
@@ -341,13 +353,19 @@ function Step1Form({ form, showPw, showConfirm, setShowPw, setShowConfirm, onNex
           render={({ field: { onChange, value, onBlur } }) => (
             <InputBox value={value} onChange={onChange} onBlur={onBlur} placeholder="Repeat your password"
               secureTextEntry={!showConfirm} error={!!errors.confirmPassword}
-              rightEl={<TouchableOpacity onPress={() => setShowConfirm((p: boolean) => !p)}><Text style={{ fontSize: 16 }}>{showConfirm ? '🙈' : '👁️'}</Text></TouchableOpacity>}
+              rightEl={<TouchableOpacity
+                          onPress={() => setShowPw((p:boolean) => !p)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Icon.Eye size={20} color={C.textMuted} showPw={showPw} />
+                        </TouchableOpacity>}
             />
           )} />
       </Field>
-      <TouchableOpacity style={styles.nextBtn} onPress={onNext} activeOpacity={0.85}>
-        <Text style={styles.nextBtnText}>Continue →</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.nextBtn} onPress={onNext} activeOpacity={0.85}>
+          <Text style={styles.nextBtnText}>Continue</Text>
+          <Icon.ArrowRight size={15} />
+        </TouchableOpacity>
     </View>
   );
 }
@@ -393,11 +411,11 @@ function Step2Form({ form, onNext }: { form: any; onNext: () => void }) {
                 style={[styles.pickerBtn, { backgroundColor: C.surface, borderColor: errors.date_of_birth ? C.error : C.border }]}
                 onPress={() => setShowCal(true)}
               >
-                <Text style={{ fontSize: 16 }}>📅</Text>
+                <Icon.Calendar size={18} color={C.textMuted} />
                 <Text style={[styles.pickerBtnText, { color: value ? C.textPrimary : C.textMuted }]}>
                   {value || 'Select date of birth'}
                 </Text>
-                <Text style={[styles.pickerArrow, { color: C.textMuted }]}>›</Text>
+                <Icon.ChevronRight size={16} color={C.textMuted} />
               </TouchableOpacity>
               <CalendarPicker
                 visible={showCal}
@@ -418,11 +436,11 @@ function Step2Form({ form, onNext }: { form: any; onNext: () => void }) {
                 style={[styles.pickerBtn, { backgroundColor: C.surface, borderColor: errors.nationality ? C.error : C.border }]}
                 onPress={() => setShowNat(true)}
               >
-                <Text style={{ fontSize: 16 }}>🌍</Text>
+                <Icon.Globe size={18} color={C.textMuted} />
                 <Text style={[styles.pickerBtnText, { color: value ? C.textPrimary : C.textMuted }]}>
                   {value || 'Select nationality'}
                 </Text>
-                <Text style={[styles.pickerArrow, { color: C.textMuted }]}>›</Text>
+                <Icon.ChevronRight size={16} color={C.textMuted} />
               </TouchableOpacity>
               <NationalityPicker
                 visible={showNat}
@@ -435,7 +453,8 @@ function Step2Form({ form, onNext }: { form: any; onNext: () => void }) {
       </Field>
 
       <TouchableOpacity style={styles.nextBtn} onPress={onNext} activeOpacity={0.85}>
-        <Text style={styles.nextBtnText}>Continue →</Text>
+        <Text style={styles.nextBtnText}>Continue</Text>
+        <Icon.ArrowRight size={15} />
       </TouchableOpacity>
     </View>
   );
@@ -552,6 +571,7 @@ export default function RegisterScreen() {
   const goBack = () => { setGoingBack(true); setStep((s) => s - 1); };
   const enterAnim = goingBack ? FadeInLeft : FadeInRight;
   const exitAnim  = goingBack ? FadeOutRight : FadeOutLeft;
+  const C = useColors();
 
   return (
     <SafeAreaView style={[styles.safe, t.bg]}>
@@ -560,7 +580,7 @@ export default function RegisterScreen() {
         {/* Progress Header */}
         <View style={styles.progressHeader}>
           <TouchableOpacity onPress={step === 0 ? () => router.back() : goBack} style={styles.backBtn}>
-            <Text style={[styles.backBtnText, t.textPrimary]}>←</Text>
+            <Icon.ArrowLeft size={15} color={C.textPrimary}/>
           </TouchableOpacity>
           <View style={styles.progressSteps}>
             {STEPS.map((s, i) => (
@@ -659,7 +679,7 @@ const styles = StyleSheet.create({
 
   nextBtn: {
     height: 54, backgroundColor: '#3B82F6', borderRadius: Radius.lg,
-    alignItems: 'center', justifyContent: 'center', marginTop: Spacing.sm,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm,
   },
   nextBtnText: { color: '#fff', fontSize: Typography.md, fontFamily: 'SpaceGrotesk_600SemiBold', letterSpacing: 0.5 },
 

@@ -113,6 +113,8 @@ export interface IncidentTimelineEntry {
   id: number;
   incident_id: number;
   status: IncidentStatus;
+  created_by: number;
+  created_at: string;
   changed_by: number | null;
   note?: string | null;
   changed_at: string;
@@ -156,7 +158,7 @@ export interface Zone {
   center_latitude: number | null;
   center_longitude: number | null;
   radius_meters: number | null;
-  coordinates: Array<[number, number]> | null;
+  geometry: Array<[number, number]> | null;
   is_active: boolean;
   created_at: string;
 }

@@ -48,6 +48,14 @@ export default function LoginScreen() {
     resolver: zodResolver(schema),
   });
 
+  const triggerShake = () => {
+    shakeX.value = withSequence(
+      withTiming(-10, { duration: 55 }), withTiming(10, { duration: 55 }),
+      withTiming(-8,  { duration: 55 }), withTiming(8,  { duration: 55 }),
+      withTiming(0,   { duration: 55 })
+    );
+  };
+
   const onSubmit = async (data: FormData) => {
     setLoading(true);
     try {
@@ -56,16 +64,26 @@ export default function LoginScreen() {
       await SecureStorage.set(Config.ACCESS_TOKEN_KEY, tokens.access_token);
       await SecureStorage.set(Config.REFRESH_TOKEN_KEY, tokens.refresh_token);
       const user = await authApi.me();
+
+      // Only TOURIST accounts are allowed to use this app.
+      // ADMIN and AUTHORITY users must use the management dashboard instead.
+      if (user.role !== 'TOURIST') {
+        // Clear the tokens we just stored — this session should not exist
+        await SecureStorage.clear([Config.ACCESS_TOKEN_KEY, Config.REFRESH_TOKEN_KEY]);
+        triggerShake();
+        Alert.alert(
+          'Access Denied',
+          'This app is for tourists only. Administrators and authorities should use the management dashboard.',
+        );
+        return;
+      }
+
       setUser(user);
       i18n.setLanguage(normaliseLanguage(user.preferred_language));
       wsClient.connect();
       router.replace('/(tabs)');
     } catch (err: any) {
-      shakeX.value = withSequence(
-        withTiming(-10, { duration: 55 }), withTiming(10, { duration: 55 }),
-        withTiming(-8,  { duration: 55 }), withTiming(8,  { duration: 55 }),
-        withTiming(0,   { duration: 55 })
-      );
+      triggerShake();
       const msg = err?.response?.data?.detail === 'Invalid credentials.'
         ? 'Incorrect email or password.'
         : 'Login failed. Please try again.';
@@ -110,7 +128,9 @@ export default function LoginScreen() {
                       placeholder="your@email.com"
                       placeholderTextColor={C.textMuted}
                       value={value} onChangeText={onChange} onBlur={onBlur}
-                      keyboardType="email-address" autoCapitalize="none" autoCorrect={false}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
                     />
                   </View>
                 )}
@@ -135,9 +155,16 @@ export default function LoginScreen() {
                       placeholderTextColor={C.textMuted}
                       value={value} onChangeText={onChange} onBlur={onBlur}
                       secureTextEntry={!showPw}
+                      // Passwords can start with any character — disable sentence capitalisation
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      textContentType="password"
                     />
-                    <TouchableOpacity onPress={() => setShowPw((p) => !p)}>
-                      <Text style={{ fontSize: 16 }}>{showPw ? '🙈' : '👁️'}</Text>
+                    <TouchableOpacity
+                      onPress={() => setShowPw((p) => !p)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Icon.Eye size={20} color={C.textMuted} showPw={showPw} />
                     </TouchableOpacity>
                   </View>
                 )}

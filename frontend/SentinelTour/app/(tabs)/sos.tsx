@@ -1,26 +1,26 @@
+// app/(tabs)/sos.tsx
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   TextInput, ScrollView, Alert, Image,
   ActivityIndicator, Vibration,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import Animated, {
-  useSharedValue, useAnimatedStyle,
-  withRepeat, withTiming, withSpring, withSequence, Easing,
+  useSharedValue, useAnimatedStyle, useAnimatedProps,
+  withRepeat, withTiming, withSpring, Easing,
   FadeInDown, FadeIn, cancelAnimation,
 } from 'react-native-reanimated';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/layout/Header';
 import { Icon } from '@/components/ui/Icons';
-import { Badge } from '@/components/ui/Badge';
 import { incidentsApi } from '@/api/incidents';
 import { mediaApi } from '@/api/media';
 import { Typography, Spacing, Radius } from '@/constants/theme';
 import { useThemedStyles } from '@/utils/themedStyles';
+import { useTranslation } from '@/utils/i18n';
 
 const HOLD_MS       = 3000;
 const LIGHT_PATTERN = Array.from({ length: 30 }, () => 100);
@@ -28,60 +28,114 @@ const LIGHT_PATTERN = Array.from({ length: 30 }, () => 100);
 type SOSState = 'idle' | 'holding' | 'confirmed' | 'sent' | 'error';
 interface MediaItem { uri: string; type: 'image' | 'video'; fileName: string; }
 
-// ─── Animated SOS button ──────────────────────────────────
-function SOSButton({ state, onPressIn, onPressOut }: { state: SOSState; onPressIn: () => void; onPressOut: () => void }) {
+// ─── Wrap Circle so Reanimated can drive its props ────────
+// Must be at module level (not inside a component) to avoid re-creating
+// the animated component on every render.
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+// ─── SOS Button ───────────────────────────────────────────
+function SOSButton({ state, onPressIn, onPressOut }: {
+  state: SOSState; onPressIn: () => void; onPressOut: () => void;
+}) {
+  const SIZE   = 180;
+  const RADIUS = 80;
+  const CIRC   = 2 * Math.PI * RADIUS;   // ≈ 502.65
+
+  // Animated values
   const outerScale   = useSharedValue(1);
   const outerOpacity = useSharedValue(0.35);
   const innerScale   = useSharedValue(1);
-  const progressPct  = useSharedValue(0);
+
+  // Progress: 0 = empty ring, 1 = full ring
+  const progress = useSharedValue(0);
 
   useEffect(() => {
     if (state === 'idle') {
+      // Idle pulse — the outer glow ring breathes
       outerScale.value   = withRepeat(withTiming(1.28, { duration: 1600, easing: Easing.inOut(Easing.ease) }), -1, true);
       outerOpacity.value = withRepeat(withTiming(0.08, { duration: 1600, easing: Easing.inOut(Easing.ease) }), -1, true);
-      progressPct.value  = 0;
+      // Reset progress ring to empty
+      progress.value = withTiming(0, { duration: 200 });
+
     } else if (state === 'holding') {
-      cancelAnimation(outerScale); cancelAnimation(outerOpacity);
+      cancelAnimation(outerScale);
+      cancelAnimation(outerOpacity);
       outerScale.value   = withRepeat(withTiming(1.45, { duration: 350 }), -1, true);
       outerOpacity.value = withRepeat(withTiming(0.22, { duration: 350 }), -1, true);
       innerScale.value   = withSpring(0.91);
-      progressPct.value  = withTiming(1, { duration: HOLD_MS, easing: Easing.linear });
+      // ← Fill ring from 0% → 100% over exactly HOLD_MS
+      progress.value     = withTiming(1, { duration: HOLD_MS, easing: Easing.linear });
+
     } else if (state === 'confirmed' || state === 'sent') {
-      cancelAnimation(outerScale); cancelAnimation(outerOpacity);
-      outerScale.value = withSpring(1); outerOpacity.value = withTiming(0);
-      innerScale.value = withSpring(1); progressPct.value  = 1;
-    } else {
       cancelAnimation(outerScale);
-      progressPct.value = withSpring(0); innerScale.value = withSpring(1);
+      cancelAnimation(outerOpacity);
+      outerScale.value   = withSpring(1);
+      outerOpacity.value = withTiming(0);
+      innerScale.value   = withSpring(1);
+      progress.value     = withTiming(1, { duration: 150 }); // snap to full
+
+    } else {
+      // cancelled / error — reset
+      cancelAnimation(outerScale);
+      progress.value   = withTiming(0, { duration: 200 });
+      innerScale.value = withSpring(1);
     }
   }, [state]);
 
-  const outerStyle = useAnimatedStyle(() => ({ transform: [{ scale: outerScale.value }], opacity: outerOpacity.value }));
+  const outerStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: outerScale.value }],
+    opacity:    outerOpacity.value,
+  }));
   const innerStyle = useAnimatedStyle(() => ({ transform: [{ scale: innerScale.value }] }));
 
-  const SIZE = 180; const RADIUS = 80; const CIRC = 2 * Math.PI * RADIUS;
+  // ← useAnimatedProps drives strokeDashoffset on the SVG circle
+  // strokeDashoffset: CIRC = empty (0%), 0 = full (100%)
+  const ringProps = useAnimatedProps(() => ({
+    strokeDashoffset: CIRC * (1 - progress.value),
+  }));
+
   const isConfirmed = state === 'confirmed' || state === 'sent';
   const btnColor    = isConfirmed ? '#10B981' : '#DC2626';
 
   return (
     <View style={styles.sosButtonOuter}>
+      {/* Outer breathing glow ring */}
       <Animated.View style={[styles.sosPulseRing, { borderColor: btnColor }, outerStyle]} />
+
+      {/* SVG progress arc — 0→100% during hold */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
-          <Circle cx={SIZE/2} cy={SIZE/2} r={RADIUS} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={5} />
+          {/* Track (always visible, grey) */}
+          <Circle
+            cx={SIZE / 2} cy={SIZE / 2} r={RADIUS}
+            fill="none"
+            stroke="rgba(180,180,180,0.25)"
+            strokeWidth={6}
+          />
+          {/* Animated fill ring — only visible when holding or confirmed */}
           {(state === 'holding' || isConfirmed) && (
-            <Circle cx={SIZE/2} cy={SIZE/2} r={RADIUS} fill="none"
-              stroke={isConfirmed ? '#10B981' : '#DC2626'} strokeWidth={5} strokeLinecap="round"
-              strokeDasharray={CIRC} strokeDashoffset={isConfirmed ? 0 : CIRC * 0.4}
-              transform={`rotate(-90 ${SIZE/2} ${SIZE/2})`}
+            <AnimatedCircle
+              cx={SIZE / 2} cy={SIZE / 2} r={RADIUS}
+              fill="none"
+              stroke={btnColor}
+              strokeWidth={6}
+              strokeLinecap="round"
+              strokeDasharray={CIRC}
+              animatedProps={ringProps}
+              // Start from top (12 o'clock)
+              transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
             />
           )}
         </Svg>
       </View>
+
+      {/* Inner button */}
       <Animated.View style={innerStyle}>
         <TouchableOpacity
           style={[styles.sosButton, { backgroundColor: btnColor }]}
-          onPressIn={onPressIn} onPressOut={onPressOut} activeOpacity={1}
+          onPressIn={onPressIn}
+          onPressOut={onPressOut}
+          activeOpacity={1}
         >
           {isConfirmed
             ? <Icon.CheckCircle size={52} color="#fff" strokeWidth={2.5} />
@@ -110,6 +164,7 @@ function uploadViaXHR(fileUri: string, presignedUrl: string, contentType: string
 // ─── Main screen ──────────────────────────────────────────
 export default function SOSScreen() {
   const t = useThemedStyles();
+  const { t: tr } = useTranslation();
   const queryClient = useQueryClient();
 
   const [sosState,        setSOSState]        = useState<SOSState>('idle');
@@ -164,9 +219,7 @@ export default function SOSScreen() {
           ]) as Location.LocationObject;
           finalCoords = { latitude: emergency.coords.latitude, longitude: emergency.coords.longitude };
           setLocation(finalCoords); locationRef.current = finalCoords;
-        } catch {
-          finalCoords = { latitude: 0, longitude: 0 };
-        }
+        } catch { finalCoords = { latitude: 0, longitude: 0 }; }
       }
       const incident = await incidentsApi.create({
         description: description.trim() || 'SOS emergency triggered via mobile app',
@@ -236,22 +289,20 @@ export default function SOSScreen() {
   };
 
   const removeMedia = (uri: string) => setMediaItems((prev) => prev.filter((m) => m.uri !== uri));
-
   const handleReset = () => { setSOSState('idle'); setDescription(''); setMediaItems([]); Vibration.cancel(); };
-
   const isSent = sosState === 'sent';
 
   return (
     <View style={[styles.root, t.bg]}>
-      <Header title="Emergency SOS" />
+      <Header title={tr('sosTitle')} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
         {!isSent && (
           <Animated.View entering={FadeInDown.duration(400)} style={styles.instructionCard}>
             <Icon.Info size={18} color="#3B82F6" />
             <Text style={[styles.instructionText, t.textSecondary]}>
-              {sosState === 'idle' ? 'Press and hold the button for 3 seconds to send an emergency alert.'
-               : sosState === 'holding' ? 'Keep holding... Release to cancel.'
+              {sosState === 'idle'       ? tr('sosSubtitle')
+               : sosState === 'holding'   ? 'Keep holding... Release to cancel.'
                : sosState === 'confirmed' ? 'Confirmed — sending alert...'
                : 'Submitting your SOS request...'}
             </Text>
@@ -261,10 +312,10 @@ export default function SOSScreen() {
         {isSent && (
           <Animated.View entering={FadeIn.duration(600)} style={styles.sentCard}>
             <View style={styles.sentIconWrap}><Icon.CheckCircle size={48} color="#10B981" /></View>
-            <Text style={styles.sentTitle}>Alert Sent</Text>
+            <Text style={styles.sentTitle}>{tr('sosActivated')}</Text>
             <Text style={[styles.sentSub, t.textSecondary]}>Emergency responders have been notified. Stay calm and remain at your location.</Text>
             <TouchableOpacity style={styles.resetBtn} onPress={handleReset}>
-              <Text style={styles.resetBtnText}>Done</Text>
+              <Text style={styles.resetBtnText}>{tr('confirm')}</Text>
             </TouchableOpacity>
           </Animated.View>
         )}
@@ -272,11 +323,11 @@ export default function SOSScreen() {
         {!isSent && (
           <View style={styles.buttonArea}>
             <SOSButton state={sosState} onPressIn={handlePressIn} onPressOut={handlePressOut} />
-            <Text style={[
-              styles.stateLabel,
-              { color: sosState === 'holding' ? '#EF4444' : sosState === 'confirmed' ? '#10B981' : t.C.textMuted },
-            ]}>
-              {sosState === 'idle' ? 'HOLD TO ACTIVATE' : sosState === 'holding' ? 'HOLD...' : sosState === 'confirmed' ? 'CONFIRMED' : 'SENDING...'}
+            <Text style={[styles.stateLabel, { color: sosState === 'holding' ? '#EF4444' : sosState === 'confirmed' ? '#10B981' : t.C.textMuted }]}>
+              {sosState === 'idle'       ? tr('holdToActivate').toUpperCase()
+               : sosState === 'holding'   ? 'HOLD...'
+               : sosState === 'confirmed' ? 'CONFIRMED'
+               : 'SENDING...'}
             </Text>
           </View>
         )}
@@ -285,7 +336,9 @@ export default function SOSScreen() {
           <View style={styles.locationRow}>
             <Icon.MapPin size={14} color={locationLoading ? '#F59E0B' : location ? '#10B981' : '#EF4444'} />
             <Text style={[styles.locationText, t.textMuted]}>
-              {locationLoading ? 'Acquiring location...' : location ? `Location ready: ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : 'Location unavailable — SOS will still work'}
+              {locationLoading ? 'Acquiring location...'
+               : location ? `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`
+               : 'Location unavailable — SOS will still work'}
             </Text>
             {locationLoading && <ActivityIndicator size="small" color="#F59E0B" style={{ marginLeft: 6 }} />}
           </View>
@@ -296,14 +349,9 @@ export default function SOSScreen() {
             <Text style={[styles.sectionTitle, t.textPrimary]}>Describe Your Emergency</Text>
             <Text style={[styles.sectionSub, t.textMuted]}>Optional — helps responders prepare</Text>
             <View style={[styles.textAreaWrap, t.surface, t.border]}>
-              <TextInput
-                style={[styles.textArea, { color: t.C.textPrimary }]}
-                value={description} onChangeText={setDescription}
-                placeholder="e.g. Injured at trail near checkpoint 3..."
-                placeholderTextColor={t.C.textMuted}
-                multiline numberOfLines={4} autoCapitalize="sentences"
-                maxLength={500} editable={sosState === 'idle'}
-              />
+              <TextInput style={[styles.textArea, { color: t.C.textPrimary }]} value={description} onChangeText={setDescription}
+                placeholder="e.g. Injured at trail near checkpoint 3..." placeholderTextColor={t.C.textMuted}
+                multiline numberOfLines={4} autoCapitalize="sentences" maxLength={500} editable={sosState === 'idle'} />
               <Text style={[styles.charCount, t.textMuted]}>{description.length}/500</Text>
             </View>
           </Animated.View>
@@ -311,7 +359,7 @@ export default function SOSScreen() {
 
         {!isSent && (
           <Animated.View entering={FadeInDown.duration(400).delay(220)} style={styles.section}>
-            <Text style={[styles.sectionTitle, t.textPrimary]}>Attach Evidence</Text>
+            <Text style={[styles.sectionTitle, t.textPrimary]}>{tr('addPhoto')}</Text>
             <Text style={[styles.sectionSub, t.textMuted]}>Photos or videos to assist responders</Text>
             <View style={styles.mediaActions}>
               <TouchableOpacity style={[styles.mediaActionBtn, t.surface, t.border]} onPress={() => pickMedia('image')} disabled={sosState !== 'idle'}>
@@ -328,12 +376,8 @@ export default function SOSScreen() {
                 {mediaItems.map((item) => (
                   <View key={item.uri} style={styles.mediaThumb}>
                     <Image source={{ uri: item.uri }} style={styles.mediaImage} />
-                    <View style={styles.mediaTypeBadge}>
-                      {item.type === 'video' ? <Icon.Video size={10} color="#fff" /> : <Icon.Camera size={10} color="#fff" />}
-                    </View>
-                    <TouchableOpacity style={styles.mediaRemove} onPress={() => removeMedia(item.uri)}>
-                      <Icon.X size={12} color="#fff" />
-                    </TouchableOpacity>
+                    <View style={styles.mediaTypeBadge}>{item.type === 'video' ? <Icon.Video size={10} color="#fff" /> : <Icon.Camera size={10} color="#fff" />}</View>
+                    <TouchableOpacity style={styles.mediaRemove} onPress={() => removeMedia(item.uri)}><Icon.X size={12} color="#fff" /></TouchableOpacity>
                   </View>
                 ))}
               </View>
@@ -348,10 +392,7 @@ export default function SOSScreen() {
               <Text style={[styles.emergencyInfoTitle, t.textSecondary]}>Emergency Numbers</Text>
             </View>
             <View style={styles.emergencyNumbers}>
-              {[
-                { label: 'Police', number: '100' }, { label: 'Ambulance', number: '108' },
-                { label: 'Fire', number: '101' },   { label: 'Disaster', number: '112' },
-              ].map((e) => (
+              {[{ label: 'Police', number: '100' }, { label: 'Ambulance', number: '108' }, { label: 'Fire', number: '101' }, { label: 'Disaster', number: '112' }].map((e) => (
                 <View key={e.label} style={styles.emergencyNumber}>
                   <Text style={[styles.emergencyNumberLabel, t.textMuted]}>{e.label}</Text>
                   <Text style={[styles.emergencyNumberValue, t.textPrimary]}>{e.number}</Text>
@@ -368,27 +409,17 @@ export default function SOSScreen() {
 }
 
 const styles = StyleSheet.create({
-  root:          { flex: 1 },
-  scrollContent: { paddingHorizontal: Spacing.base, paddingBottom: Spacing['4xl'], alignItems: 'center' },
-  instructionCard: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm,
-    backgroundColor: 'rgba(59,130,246,0.08)', borderRadius: Radius.lg,
-    borderWidth: 1, borderColor: 'rgba(59,130,246,0.2)',
-    padding: Spacing.md, marginTop: Spacing.base, width: '100%',
-  },
-  instructionText: { flex: 1, fontSize: Typography.sm, fontFamily: 'Inter_400Regular', lineHeight: 20 },
-  sentCard: {
-    width: '100%', alignItems: 'center', gap: Spacing.md,
-    backgroundColor: 'rgba(16,185,129,0.06)', borderRadius: Radius['2xl'],
-    borderWidth: 1, borderColor: 'rgba(16,185,129,0.2)',
-    padding: Spacing['2xl'], marginTop: Spacing.lg,
-  },
-  sentIconWrap: { width: 88, height: 88, borderRadius: 44, backgroundColor: 'rgba(16,185,129,0.1)', alignItems: 'center', justifyContent: 'center' },
-  sentTitle:    { fontSize: Typography['2xl'], fontFamily: 'SpaceGrotesk_700Bold', color: '#10B981' },
-  sentSub:      { fontSize: Typography.sm, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 22 },
-  resetBtn:     { backgroundColor: '#10B981', borderRadius: Radius.lg, paddingHorizontal: Spacing['2xl'], paddingVertical: Spacing.sm, marginTop: Spacing.sm },
-  resetBtnText: { color: '#fff', fontSize: Typography.md, fontFamily: 'SpaceGrotesk_600SemiBold' },
-  buttonArea:   { alignItems: 'center', paddingVertical: Spacing['2xl'], width: '100%' },
+  root:           { flex: 1 },
+  scrollContent:  { paddingHorizontal: Spacing.base, paddingBottom: Spacing['4xl'], alignItems: 'center' },
+  instructionCard:{ flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, backgroundColor: 'rgba(59,130,246,0.08)', borderRadius: Radius.lg, borderWidth: 1, borderColor: 'rgba(59,130,246,0.2)', padding: Spacing.md, marginTop: Spacing.base, width: '100%' },
+  instructionText:{ flex: 1, fontSize: Typography.sm, fontFamily: 'Inter_400Regular', lineHeight: 20 },
+  sentCard:    { width: '100%', alignItems: 'center', gap: Spacing.md, backgroundColor: 'rgba(16,185,129,0.06)', borderRadius: Radius['2xl'], borderWidth: 1, borderColor: 'rgba(16,185,129,0.2)', padding: Spacing['2xl'], marginTop: Spacing.lg },
+  sentIconWrap:{ width: 88, height: 88, borderRadius: 44, backgroundColor: 'rgba(16,185,129,0.1)', alignItems: 'center', justifyContent: 'center' },
+  sentTitle:   { fontSize: Typography['2xl'], fontFamily: 'SpaceGrotesk_700Bold', color: '#10B981' },
+  sentSub:     { fontSize: Typography.sm, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 22 },
+  resetBtn:    { backgroundColor: '#10B981', borderRadius: Radius.lg, paddingHorizontal: Spacing['2xl'], paddingVertical: Spacing.sm, marginTop: Spacing.sm },
+  resetBtnText:{ color: '#fff', fontSize: Typography.md, fontFamily: 'SpaceGrotesk_600SemiBold' },
+  buttonArea:     { alignItems: 'center', paddingVertical: Spacing['2xl'], width: '100%' },
   sosButtonOuter: { width: 180, height: 180, alignItems: 'center', justifyContent: 'center' },
   sosPulseRing:   { position: 'absolute', width: 180, height: 180, borderRadius: 90, borderWidth: 2 },
   sosButton:      { width: 140, height: 140, borderRadius: 70, alignItems: 'center', justifyContent: 'center', shadowColor: '#DC2626', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.55, shadowRadius: 24, elevation: 16 },
@@ -409,7 +440,7 @@ const styles = StyleSheet.create({
   mediaImage:     { width: '100%', height: '100%' },
   mediaTypeBadge: { position: 'absolute', bottom: 4, left: 4, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 4, padding: 3 },
   mediaRemove:    { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 8, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
-  emergencyInfo:  { width: '100%', borderRadius: Radius.xl, borderWidth: 1, padding: Spacing.md, gap: Spacing.md },
+  emergencyInfo:       { width: '100%', borderRadius: Radius.xl, borderWidth: 1, padding: Spacing.md, gap: Spacing.md },
   emergencyInfoHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   emergencyInfoTitle:  { fontSize: Typography.sm, fontFamily: 'SpaceGrotesk_600SemiBold' },
   emergencyNumbers:    { flexDirection: 'row', justifyContent: 'space-between' },

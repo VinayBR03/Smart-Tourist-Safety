@@ -1,7 +1,8 @@
+// app/_layout.tsx
 import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
@@ -18,25 +19,17 @@ import * as SplashScreen from 'expo-splash-screen';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { useTheme } from '@/hooks/useTheme';
 import { useThemeStore } from '@/store/themeStore';
+// ← Import the singleton so authStore.logout() can cancel queries
+import { queryClient } from '@/utils/queryClientSingleton';
 
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { retry: 2, staleTime: 30_000, refetchOnWindowFocus: false },
-  },
-});
-
 function AppShell() {
   const { C, theme } = useTheme();
-
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: C.background }}>
       <SafeAreaProvider>
-        <StatusBar
-          style={theme === 'dark' ? 'light' : 'dark'}
-          backgroundColor={C.background}
-        />
+        <StatusBar style={theme === 'dark' ? 'light' : 'dark'} backgroundColor={C.background} />
         <Stack
           screenOptions={{
             headerShown:  false,
@@ -58,7 +51,7 @@ function AppShell() {
 }
 
 export default function RootLayout() {
-  const hydrateTheme            = useThemeStore((s) => s.hydrate);
+  const hydrateTheme = useThemeStore((s) => s.hydrate);
   const [themeReady, setThemeReady] = useState(false);
 
   const [fontsLoaded] = useFonts({
@@ -81,6 +74,7 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
+      {/* Use the singleton — authStore.logout() can now call queryClient.cancelQueries() */}
       <QueryClientProvider client={queryClient}>
         <AppShell />
       </QueryClientProvider>

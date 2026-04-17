@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+// app/devices/index.tsx
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ScrollView, ActivityIndicator, Alert,
@@ -81,7 +82,8 @@ function DeviceRow({ device, onConnect, connecting }: { device: Device; onConnec
             {device.rssi != null && <Text style={[styles.deviceRowRssi, { color: C.textMuted }]}>Signal: {device.rssi} dBm</Text>}
           </View>
         </View>
-        {connecting ? <ActivityIndicator size="small" color={C.primary} />
+        {connecting
+          ? <ActivityIndicator size="small" color={C.primary} />
           : <View style={styles.connectChip}><Text style={styles.connectChipText}>Connect</Text></View>
         }
       </TouchableOpacity>
@@ -94,7 +96,7 @@ function ConnectedDeviceCard({ onDisconnect }: { onDisconnect: () => void }) {
   const C = useColors();
   const { device } = useDeviceStore();
   if (!device) return null;
-  const bat = device.batteryPercentage;
+  const bat      = device.batteryPercentage;
   const batColor = bat == null ? C.textMuted : bat > 50 ? '#10B981' : bat > 20 ? '#F59E0B' : '#EF4444';
   return (
     <Animated.View entering={FadeInDown.duration(500)}>
@@ -131,8 +133,8 @@ function ConnectedDeviceCard({ onDisconnect }: { onDisconnect: () => void }) {
         )}
         <View style={[styles.metricsRow, { backgroundColor: C.surfaceAlt }]}>
           <MetricMini label="Heart Rate" value={device.lastHeartRate != null ? `${device.lastHeartRate} bpm` : '—'} icon={<Icon.HeartPulse size={14} color="#EF4444" />} color="#EF4444" />
-          <MetricMini label="SpO₂" value={device.lastSpO2 != null ? `${device.lastSpO2}%` : '—'} icon={<Icon.Droplet size={14} color="#3B82F6" />} color="#3B82F6" />
-          <MetricMini label="Temp" value={device.lastTemperature != null ? `${device.lastTemperature}°C` : '—'} icon={<Icon.Thermometer size={14} color="#F59E0B" />} color="#F59E0B" />
+          <MetricMini label="SpO₂"       value={device.lastSpO2 != null ? `${device.lastSpO2}%` : '—'} icon={<Icon.Droplet size={14} color="#3B82F6" />} color="#3B82F6" />
+          <MetricMini label="Temp"        value={device.lastTemperature != null ? `${device.lastTemperature}°C` : '—'} icon={<Icon.Thermometer size={14} color="#F59E0B" />} color="#F59E0B" />
         </View>
         {device.lastSeen && (
           <View style={styles.lastSeen}>
@@ -169,25 +171,49 @@ export default function DevicesScreen() {
   const { device: connectedDevice, isScanning } = useDeviceStore();
   const [discovered, setDiscovered] = useState<Device[]>([]);
   const [connecting, setConnecting] = useState<string | null>(null);
-  const [stopScan,   setStopScan]   = useState<(() => void) | null>(null);
   const [bleError,   setBleError]   = useState<string | null>(null);
 
+  // Keep a ref to the current stop function so the cleanup effect always
+  // cancels the LATEST scan, not the one captured at mount time.
+  const stopScanRef = useRef<(() => void) | null>(null);
+
+  // ── Start scanning ──────────────────────────────────
+  // The BluetoothService now calls stopDeviceScan() internally before starting,
+  // so calling startScan() multiple times is safe and always works.
   const startScan = useCallback(async () => {
-    setBleError(null); setDiscovered([]);
+    setBleError(null);
+    setDiscovered([]);
+
     const granted = await bluetoothService.requestPermissions();
-    if (!granted) { setBleError('Bluetooth permission denied. Enable it in system settings.'); return; }
+    if (!granted) {
+      setBleError('Bluetooth permission denied. Enable it in system settings.');
+      return;
+    }
     const state = await bluetoothService.checkState();
-    if (state !== 'PoweredOn') { setBleError('Bluetooth is off. Please enable it and try again.'); return; }
+    if (state !== 'PoweredOn') {
+      setBleError('Bluetooth is off. Please enable it and try again.');
+      return;
+    }
+
     const stop = bluetoothService.scanForWristband(
-      (dev) => setDiscovered((prev) => prev.find((d) => d.id === dev.id) ? prev : [...prev, dev]),
+      (dev) => setDiscovered((prev) =>
+        prev.find((d) => d.id === dev.id) ? prev : [...prev, dev]
+      ),
       (err) => setBleError(err.message)
     );
-    setStopScan(() => stop);
+
+    // Store in ref so the cleanup/stop-scan button always references this scan
+    stopScanRef.current = stop;
+  }, []);
+
+  const handleStopScan = useCallback(() => {
+    stopScanRef.current?.();
+    stopScanRef.current = null;
   }, []);
 
   const handleConnect = async (deviceId: string) => {
     setConnecting(deviceId);
-    if (stopScan) stopScan();
+    handleStopScan(); // stop scan before connecting
     try {
       await bluetoothService.connect(deviceId);
       setDiscovered([]);
@@ -205,7 +231,8 @@ export default function DevicesScreen() {
     ]);
   };
 
-  useEffect(() => () => { if (stopScan) stopScan(); }, [stopScan]);
+  // Stop scan when leaving screen
+  useEffect(() => () => { stopScanRef.current?.(); }, []);
 
   return (
     <View style={[styles.root, t.bg]}>
@@ -225,8 +252,13 @@ export default function DevicesScreen() {
                 <>
                   <ScanningAnimation />
                   <Text style={[styles.scanTitle, t.textPrimary]}>Searching for wristbands...</Text>
-                  <Text style={[styles.scanSub, t.textMuted]}>Make sure your wristband is powered on and nearby.</Text>
-                  <TouchableOpacity style={[styles.stopScanBtn, t.surface, t.border]} onPress={() => stopScan?.()}>
+                  <Text style={[styles.scanSub, t.textMuted]}>
+                    Make sure your wristband is powered on and nearby.
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.stopScanBtn, t.surface, t.border]}
+                    onPress={handleStopScan}
+                  >
                     <Text style={[styles.stopScanText, t.textSecondary]}>Stop Scanning</Text>
                   </TouchableOpacity>
                 </>
@@ -239,6 +271,7 @@ export default function DevicesScreen() {
                   <Text style={[styles.scanSub, t.textMuted]}>
                     Tap the button below to scan for your Sentinel wristband via Bluetooth.
                   </Text>
+                  {/* Start Scanning — works unlimited times; BluetoothService resets scan state internally */}
                   <TouchableOpacity style={styles.scanBtn} onPress={startScan} activeOpacity={0.85}>
                     <Icon.RefreshCw size={18} color="#fff" />
                     <Text style={styles.scanBtnText}>Start Scanning</Text>
@@ -257,7 +290,12 @@ export default function DevicesScreen() {
               <View style={styles.section}>
                 <SectionTitle label={`Found ${discovered.length} device${discovered.length > 1 ? 's' : ''}`} />
                 {discovered.map((dev) => (
-                  <DeviceRow key={dev.id} device={dev} onConnect={() => handleConnect(dev.id)} connecting={connecting === dev.id} />
+                  <DeviceRow
+                    key={dev.id}
+                    device={dev}
+                    onConnect={() => handleConnect(dev.id)}
+                    connecting={connecting === dev.id}
+                  />
                 ))}
               </View>
             )}
@@ -298,23 +336,23 @@ export default function DevicesScreen() {
 }
 
 const styles = StyleSheet.create({
-  root:         { flex: 1 },
-  scrollContent:{ paddingHorizontal: Spacing.base, paddingBottom: Spacing['4xl'] },
-  section:      { marginTop: Spacing.base, gap: Spacing.sm },
-  sectionTitle: { fontSize: Typography.xs, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 2 },
-  scanCard:     { alignItems: 'center', paddingVertical: Spacing['2xl'], gap: Spacing.md },
-  scanTitle:    { fontSize: Typography.lg, fontFamily: 'SpaceGrotesk_700Bold' },
-  scanSub:      { fontSize: Typography.sm, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 22, paddingHorizontal: Spacing.lg },
-  scanBtn:      { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: '#3B82F6', borderRadius: Radius.lg, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm, marginTop: Spacing.sm },
-  scanBtnText:  { color: '#fff', fontSize: Typography.base, fontFamily: 'SpaceGrotesk_600SemiBold' },
-  stopScanBtn:  { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm, borderRadius: Radius.lg, borderWidth: 1 },
-  stopScanText: { fontSize: Typography.sm, fontFamily: 'Inter_500Medium' },
+  root:          { flex: 1 },
+  scrollContent: { paddingHorizontal: Spacing.base, paddingBottom: Spacing['4xl'] },
+  section:       { marginTop: Spacing.base, gap: Spacing.sm },
+  sectionTitle:  { fontSize: Typography.xs, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 2 },
+  scanCard:      { alignItems: 'center', paddingVertical: Spacing['2xl'], gap: Spacing.md },
+  scanTitle:     { fontSize: Typography.lg, fontFamily: 'SpaceGrotesk_700Bold' },
+  scanSub:       { fontSize: Typography.sm, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 22, paddingHorizontal: Spacing.lg },
+  scanBtn:       { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: '#3B82F6', borderRadius: Radius.lg, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm, marginTop: Spacing.sm },
+  scanBtnText:   { color: '#fff', fontSize: Typography.base, fontFamily: 'SpaceGrotesk_600SemiBold' },
+  stopScanBtn:   { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm, borderRadius: Radius.lg, borderWidth: 1 },
+  stopScanText:  { fontSize: Typography.sm, fontFamily: 'Inter_500Medium' },
   notConnectedIcon: { width: 80, height: 80, borderRadius: 28, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  bleError:     { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: Radius.md, padding: Spacing.sm, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)', width: '100%' },
-  bleErrorText: { fontSize: Typography.xs, fontFamily: 'Inter_400Regular', color: '#EF4444', flex: 1 },
-  scanAnim:     { width: 80, height: 80, alignItems: 'center', justifyContent: 'center' },
-  scanRing:     { position: 'absolute', width: 80, height: 80, borderRadius: 40, borderWidth: 1.5, borderColor: '#3B82F6', opacity: 0.5 },
-  scanCenter:   { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(59,130,246,0.12)', alignItems: 'center', justifyContent: 'center' },
+  bleError:      { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: Radius.md, padding: Spacing.sm, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)', width: '100%' },
+  bleErrorText:  { fontSize: Typography.xs, fontFamily: 'Inter_400Regular', color: '#EF4444', flex: 1 },
+  scanAnim:      { width: 80, height: 80, alignItems: 'center', justifyContent: 'center' },
+  scanRing:      { position: 'absolute', width: 80, height: 80, borderRadius: 40, borderWidth: 1.5, borderColor: '#3B82F6', opacity: 0.5 },
+  scanCenter:    { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(59,130,246,0.12)', alignItems: 'center', justifyContent: 'center' },
   connectedCard: { gap: Spacing.md },
   connectedHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   connectedHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
@@ -330,15 +368,15 @@ const styles = StyleSheet.create({
   batterySectionRight: { flex: 1, gap: Spacing.xs },
   batterySectionTitle: { fontSize: Typography.sm, fontFamily: 'Inter_500Medium' },
   batterySectionValue: { fontSize: Typography.xl, fontFamily: 'SpaceGrotesk_700Bold' },
-  batteryAlert:     { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  batteryAlertText: { fontSize: Typography.xs, fontFamily: 'Inter_400Regular' },
+  batteryAlert:        { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  batteryAlertText:    { fontSize: Typography.xs, fontFamily: 'Inter_400Regular' },
   metricsRow:  { flexDirection: 'row', gap: Spacing.sm, borderRadius: Radius.lg, padding: Spacing.md },
   metricMini:  { flex: 1, alignItems: 'center', gap: 3 },
   metricMiniValue: { fontSize: Typography.sm, fontFamily: 'SpaceGrotesk_700Bold' },
   metricMiniLabel: { fontSize: 10, fontFamily: 'Inter_400Regular' },
-  lastSeen:     { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  lastSeenText: { fontSize: Typography.xs, fontFamily: 'Inter_400Regular' },
-  deviceRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: Radius.xl, borderWidth: 1, padding: Spacing.md },
+  lastSeen:    { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  lastSeenText:{ fontSize: Typography.xs, fontFamily: 'Inter_400Regular' },
+  deviceRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: Radius.xl, borderWidth: 1, padding: Spacing.md },
   deviceRowLeft:{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
   deviceRowIcon:{ width: 44, height: 44, borderRadius: Radius.lg, backgroundColor: 'rgba(59,130,246,0.1)', alignItems: 'center', justifyContent: 'center' },
   deviceRowName:{ fontSize: Typography.sm, fontFamily: 'SpaceGrotesk_600SemiBold' },

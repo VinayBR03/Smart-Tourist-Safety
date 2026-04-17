@@ -88,7 +88,7 @@ function EmptyState() {
   return (
     <Animated.View entering={FadeInDown.duration(500)} style={styles.emptyState}>
       <View style={[styles.emptyIconWrap, { backgroundColor: C.surface, borderColor: C.border }]}>
-        <Icon.Bell size={36} color={C.textMuted} />
+        <Icon.Bell size={38} color={C.textMuted} />
       </View>
       <Text style={[styles.emptyTitle, { color: C.textPrimary }]}>All caught up</Text>
       <Text style={[styles.emptySub, { color: C.textMuted }]}>

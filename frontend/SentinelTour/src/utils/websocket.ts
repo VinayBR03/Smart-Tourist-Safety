@@ -1,6 +1,8 @@
+// src/utils/websocket.ts
 import { Config } from '@/constants/config';
 import { SecureStorage } from './storage';
 import { useNotificationStore } from '@/store/notificationStore';
+import { queryClient } from './queryClientSingleton';
 
 type WSMessageHandler = (data: unknown) => void;
 
@@ -8,6 +10,7 @@ class WebSocketClient {
   private ws: WebSocket | null = null;
   private handlers: Map<string, WSMessageHandler[]> = new Map();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private shouldReconnect = true;
 
   async connect(): Promise<void> {
@@ -25,20 +28,57 @@ class WebSocketClient {
     this.ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        const handlers = this.handlers.get(data.type) ?? [];
+        const type: string = data.type ?? '';
+
+        // ── Dispatch to registered handlers ──────────────
+        const handlers = this.handlers.get(type) ?? [];
         handlers.forEach((h) => h(data));
 
-        // Auto-increment notification badge
-        if (data.type === 'notification') {
+        // ── Handle notification events ────────────────────
+        // The backend may send either 'notification' or 'new_notification'
+        // depending on version. Handle both.
+        if (type === 'notification' || type === 'new_notification') {
+          // 1. Bump the badge count immediately
+          useNotificationStore.getState().increment();
+
+          // 2. Invalidate React Query cache so the notifications list
+          //    and unread-count refetch automatically.
+          //    This is what makes the notification actually appear in the
+          //    notifications tab without the user having to pull-to-refresh.
+          queryClient.invalidateQueries({ queryKey: ['notifications'] });
+          queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
+        }
+
+        // ── Handle incident status change push ────────────
+        // Some backend versions push 'incident_update' or embed the
+        // notification inside a 'notification' event with event_type.
+        if (type === 'incident_update' || data?.payload?.event_type === 'INCIDENT_STATUS_CHANGED') {
+          queryClient.invalidateQueries({ queryKey: ['incidents', 'me'] });
+          queryClient.invalidateQueries({ queryKey: ['notifications'] });
+          queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
           useNotificationStore.getState().increment();
         }
+
+        // ── Handle zone risk change ───────────────────────
+        if (type === 'zone_update' || type === 'zone_risk_change') {
+          queryClient.invalidateQueries({ queryKey: ['zones'] });
+        }
+
+        // ── Handle health alert ───────────────────────────
+        if (type === 'health_alert') {
+          queryClient.invalidateQueries({ queryKey: ['health', 'latest'] });
+          queryClient.invalidateQueries({ queryKey: ['notifications'] });
+          useNotificationStore.getState().increment();
+        }
+
       } catch (e) {
         console.warn('[WS] Parse error', e);
       }
     };
 
-    this.ws.onclose = () => {
-      console.log('[WS] Disconnected');
+    this.ws.onclose = (ev) => {
+      console.log('[WS] Disconnected', ev.code, ev.reason);
+      this.clearHeartbeat();
       if (this.shouldReconnect) {
         this.reconnectTimer = setTimeout(() => this.connect(), 5000);
       }
@@ -49,14 +89,20 @@ class WebSocketClient {
     };
   }
 
-  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
-
   private startHeartbeat() {
+    this.clearHeartbeat();
     this.heartbeatInterval = setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) {
         this.ws.send(JSON.stringify({ type: 'heartbeat' }));
       }
     }, 30_000);
+  }
+
+  private clearHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
   }
 
   on(eventType: string, handler: WSMessageHandler) {
@@ -66,16 +112,13 @@ class WebSocketClient {
 
   off(eventType: string, handler: WSMessageHandler) {
     const existing = this.handlers.get(eventType) ?? [];
-    this.handlers.set(
-      eventType,
-      existing.filter((h) => h !== handler)
-    );
+    this.handlers.set(eventType, existing.filter((h) => h !== handler));
   }
 
   disconnect() {
     this.shouldReconnect = false;
-    if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.clearHeartbeat();
+    if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
     this.ws?.close();
     this.ws = null;
   }

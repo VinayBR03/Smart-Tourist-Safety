@@ -10,6 +10,7 @@ import { i18n } from '@/utils/i18n';
 import type { UserLanguage } from '@/types/api';
 import { useThemedStyles } from '@/utils/themedStyles';
 import { useColors } from '@/context/ThemeContext';
+import { Icon } from '@/components/ui/Icons';
 
 const LANGUAGES: { code: UserLanguage; label: string; native: string; flag: string }[] = [
   { code: 'en', label: 'English',   native: 'English',  flag: '🇬🇧' },
@@ -74,6 +75,8 @@ export default function LanguageSelectScreen() {
     router.push({ pathname: '/(auth)/register', params: { language: selected } });
   };
 
+  const C = useColors();
+
   return (
     <SafeAreaView style={[styles.safe, t.bg]}>
       <View style={styles.container}>
@@ -81,7 +84,7 @@ export default function LanguageSelectScreen() {
 
         <Animated.View entering={FadeInDown.duration(500)} style={styles.header}>
           <View style={[styles.icon, t.surface, t.border]}>
-            <Text style={styles.iconText}>🌐</Text>
+            <Icon.Globe size={32} color={C.primary} />
           </View>
           <Text style={[styles.title, t.textPrimary]}>Choose Your Language</Text>
           <Text style={[styles.subtitle, t.textSecondary]}>
@@ -104,10 +107,10 @@ export default function LanguageSelectScreen() {
         <Animated.View entering={FadeInDown.duration(500).delay(300)} style={styles.footer}>
           <TouchableOpacity style={styles.btn} onPress={handleContinue} activeOpacity={0.85}>
             <Text style={styles.btnText}>Continue</Text>
-            <Text style={styles.btnArrow}>→</Text>
+            <Icon.ArrowRight size={15} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.back()} style={styles.backLink}>
-            <Text style={[styles.backText, t.textSecondary]}>← Back to Login</Text>
+            <Text style={[styles.backText, t.textSecondary]}><Icon.ArrowLeft size={12} color={C.textSecondary}/> Back to Login</Text>
           </TouchableOpacity>
         </Animated.View>
       </View>

@@ -1,7 +1,8 @@
+// src/api/client.ts
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { Config } from '@/constants/config';
 import { SecureStorage } from '@/utils/storage';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore, isLoggingOut } from '@/store/authStore';
 
 let isRefreshing = false;
 let failedQueue: Array<{
@@ -14,57 +15,54 @@ const processQueue = (error: unknown, token: string | null) => {
   failedQueue = [];
 };
 
-// Routes that must NEVER trigger token refresh — they are auth routes themselves
 const AUTH_ROUTES = ['/auth/login', '/auth/refresh', '/auth/logout', '/auth/register'];
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL: Config.API_BASE_URL,
   timeout: 15_000,
-  headers: {
-    'Content-Type': 'application/json',
-    Accept:         'application/json',
-  },
+  headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
 });
 
-// ── Request: attach access token ─────────────────────────
+// ── Request interceptor ───────────────────────────────────
 apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
-  const token = await SecureStorage.get(Config.ACCESS_TOKEN_KEY);
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  // Cancel immediately if logout is in progress — before the request leaves the device
+  if (isLoggingOut) {
+    const ctrl = new AbortController();
+    ctrl.abort();
+    config.signal = ctrl.signal;
+    return config;
   }
+
+  const token = await SecureStorage.get(Config.ACCESS_TOKEN_KEY);
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// ── Response: silent token refresh ───────────────────────
+// ── Response interceptor ──────────────────────────────────
 apiClient.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
+    // Silently drop anything aborted due to logout
+    if (isLoggingOut) return Promise.reject(error);
+    if (
+      error.name === 'CanceledError' ||
+      error.name === 'AbortError'    ||
+      (error as any).code === 'ERR_CANCELED'
+    ) return Promise.reject(error);
+
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     const url      = original?.url ?? '';
 
-    // Never retry auth routes — prevents infinite loop after logout
-    const isAuthRoute = AUTH_ROUTES.some((r) => url.includes(r));
-    if (isAuthRoute) {
-      return Promise.reject(error);
-    }
+    if (AUTH_ROUTES.some((r) => url.includes(r))) return Promise.reject(error);
+    if (error.response?.status !== 401 || original._retry) return Promise.reject(error);
 
-    if (error.response?.status !== 401 || original._retry) {
-      return Promise.reject(error);
-    }
-
-    // If we have no tokens at all, user is logged out — don't retry
     const existingToken = await SecureStorage.get(Config.ACCESS_TOKEN_KEY);
-    if (!existingToken) {
-      return Promise.reject(error);
-    }
+    if (!existingToken || isLoggingOut) return Promise.reject(error);
 
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         failedQueue.push({
-          resolve: (token) => {
-            original.headers.Authorization = `Bearer ${token}`;
-            resolve(apiClient(original));
-          },
+          resolve: (token) => { original.headers.Authorization = `Bearer ${token}`; resolve(apiClient(original)); },
           reject,
         });
       });
@@ -83,14 +81,11 @@ apiClient.interceptors.response.use(
 
       await SecureStorage.set(Config.ACCESS_TOKEN_KEY, data.access_token);
       await SecureStorage.set(Config.REFRESH_TOKEN_KEY, data.refresh_token);
-
       processQueue(null, data.access_token);
       original.headers.Authorization = `Bearer ${data.access_token}`;
-
       return apiClient(original);
     } catch (err) {
       processQueue(err, null);
-      // Tokens are invalid — clear everything and go to login
       await SecureStorage.clear([Config.ACCESS_TOKEN_KEY, Config.REFRESH_TOKEN_KEY]);
       useAuthStore.getState().logout();
       return Promise.reject(err);
