@@ -10,7 +10,7 @@
     "build:android": "eas build --platform android --profile preview",
     "build:ios": "eas build --platform ios --profile preview",
     "build:production": "eas build --platform all --profile production",
-    "eas-build-pre-install": "echo $GOOGLE_SERVICES_BASE64 | base64 --decode > ./google-services.json"
+    "eas-build-pre-install": "corepack enable && echo $GOOGLE_SERVICES_BASE64 | base64 --decode > ./google-services.json"
   },
   "dependencies": {
     "@babel/core": "^7.29.0",
