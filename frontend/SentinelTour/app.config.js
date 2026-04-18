@@ -1,0 +1,89 @@
+import 'dotenv/config';
+
+export default {
+  name: "Sentinel Tour",
+  slug: "sentinel-tour",
+  version: "1.0.0",
+  orientation: "portrait",
+  icon: "./assets/logo.png",
+  userInterfaceStyle: "automatic",
+  scheme: "sentineltour",
+  splash: {
+    image: "./assets/icon.png",
+    resizeMode: "contain",
+    backgroundColor: "#0A0F1E"
+  },
+  ios: {
+    supportsTablet: false,
+    bundleIdentifier: "com.sentineltour.app",
+    infoPlist: {
+      NSLocationWhenInUseUsageDescription: "Sentinel Tour needs your location to track your safety on tours.",
+      NSLocationAlwaysAndWhenInUseUsageDescription: "Sentinel Tour uses background location to alert you of nearby hazards.",
+      NSBluetoothAlwaysUsageDescription: "Sentinel Tour connects to your wristband sensor via Bluetooth.",
+      NSCameraUsageDescription: "Sentinel Tour allows you to upload incident photos.",
+      NSPhotoLibraryUsageDescription: "Sentinel Tour allows you to attach photos to incidents.",
+      NSMicrophoneUsageDescription: "Sentinel Tour allows you to record incident videos."
+    }
+  },
+  android: {
+    adaptiveIcon: {
+      foregroundImage: "./assets/adaptive-foreground.png",
+      backgroundColor: "#0A0F1E"
+    },
+    package: "com.sentineltour.app",
+    config: {
+      googleMaps: {
+        apiKey: process.env.GOOGLE_MAPS_API_KEY
+      }
+    },
+    permissions: [
+      "ACCESS_FINE_LOCATION",
+      "ACCESS_COARSE_LOCATION",
+      "ACCESS_BACKGROUND_LOCATION",
+      "BLUETOOTH",
+      "BLUETOOTH_ADMIN",
+      "BLUETOOTH_CONNECT",
+      "BLUETOOTH_SCAN",
+      "CAMERA",
+      "READ_EXTERNAL_STORAGE",
+      "WRITE_EXTERNAL_STORAGE",
+      "RECORD_AUDIO",
+      "FOREGROUND_SERVICE"
+    ],
+    googleServicesFile: "./google-services.json"
+  },
+  plugins: [
+    "expo-router",
+    "expo-secure-store",
+    [
+      "expo-location",
+      {
+        "locationAlwaysAndWhenInUsePermission": "Sentinel Tour needs your location to keep you safe on tours."
+      }
+    ],
+    [
+      "expo-camera",
+      {
+        "cameraPermission": "Sentinel Tour needs camera access for incident reporting."
+      }
+    ],
+    "expo-font",
+    [
+      "expo-notifications",
+      {
+        "icon": "./assets/notification-icon.png",
+        "color": "#3B82F6"
+      }
+    ],
+    "react-native-ble-plx"
+  ],
+  experiments: {
+    typedRoutes: true
+  },
+  extra: {
+    router: {},
+    eas: {
+      projectId: "b38e86aa-6a30-4a4d-9ec6-c3d552d47f5a"
+    }
+  }
+};

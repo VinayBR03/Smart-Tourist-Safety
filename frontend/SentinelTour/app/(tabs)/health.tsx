@@ -165,18 +165,18 @@ function StatBox({ label, value, color, unit }: { label: string; value: string; 
 // ─── Main screen ──────────────────────────────────────────
 export default function HealthScreen() {
   const t = useThemedStyles();
-  const { user }   = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const { device } = useDeviceStore();
 
   const { data: latest, isLoading, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['health', 'latest'], queryFn: healthApi.getLatest,
-    refetchInterval: 10_000, retry: false,
+    refetchInterval: 10_000, retry: false, enabled: isAuthenticated,
   });
 
   const { data: history = [] } = useQuery({
     queryKey: ['health', 'history', user?.id],
     queryFn: () => healthApi.getHistory(user!.id, 50),
-    enabled: !!user?.id, staleTime: 30_000,
+    enabled: isAuthenticated && !!user?.id, staleTime: 30_000,
   });
 
   const hrHistory   = history.map((h) => h.heart_rate).filter((v): v is number => v !== null).reverse();

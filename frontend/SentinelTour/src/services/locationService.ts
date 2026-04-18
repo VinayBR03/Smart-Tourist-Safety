@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 import { locationApi } from '@/api/location';
+import { logoutFlag } from '@/api/logoutFlag';
 import { Config } from '@/constants/config';
 
 let locationInterval: ReturnType<typeof setInterval> | null = null;
@@ -22,6 +23,7 @@ export const locationService = {
   },
 
   async sendLocation(battery?: number): Promise<void> {
+    if (logoutFlag.isLoggingOut) return;
     try {
       const pos = await locationService.getCurrentPosition();
       await locationApi.update({

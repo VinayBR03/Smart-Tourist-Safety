@@ -10,6 +10,7 @@ import { Badge, severityVariant } from '@/components/ui/Badge';
 import { Icon } from '@/components/ui/Icons';
 import { notificationsApi } from '@/api/notifications';
 import { useNotificationStore } from '@/store/notificationStore';
+import { useAuthStore } from '@/store/authStore';
 import { Typography, Spacing, Radius } from '@/constants/theme';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
 import type { NotificationSummary, NotificationSeverity } from '@/types/api';
@@ -102,10 +103,11 @@ export default function NotificationsScreen() {
   const t = useThemedStyles();
   const queryClient = useQueryClient();
   const { setUnreadCount } = useNotificationStore();
+  const { isAuthenticated } = useAuthStore();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
   const { data: notifications = [], isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['notifications'], queryFn: notificationsApi.list, refetchInterval: 30_000,
+    queryKey: ['notifications'], queryFn: notificationsApi.list, refetchInterval: 30_000, enabled: isAuthenticated,
   });
 
   const markReadMutation = useMutation({

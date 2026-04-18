@@ -45,7 +45,7 @@ async function fetchProfilePhotoUrl(): Promise<string | null> {
 
 export function Header({ title, showBack = false, rightEl }: HeaderProps) {
   const C                               = useColors();
-  const { user }                        = useAuthStore();
+  const { user, isAuthenticated }       = useAuthStore();
   const { unreadCount, setUnreadCount } = useNotificationStore();
   const insets                          = useSafeAreaInsets();
 
@@ -58,6 +58,7 @@ export function Header({ title, showBack = false, rightEl }: HeaderProps) {
       return data;
     },
     refetchInterval: 30_000,
+    enabled: isAuthenticated,
   });
 
   // ── Fetch profile photo — same query key as profile screen ──

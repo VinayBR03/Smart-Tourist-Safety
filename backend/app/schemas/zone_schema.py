@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Optional, List, Tuple
+from typing import Any, Optional, List, Tuple, Dict
 
 from pydantic import (
     BaseModel,
@@ -8,6 +8,10 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+
+import json
+from geoalchemy2.shape import to_shape 
+from shapely.geometry import mapping
 
 from app.core.enums import RiskLevel
 
@@ -184,7 +188,7 @@ class ZoneResponse(BaseModel):
     name: str
     zone_type: Optional[str]
     is_active: bool
-
+    geometry: Dict[str, Any]
     created_at: datetime
     updated_at: datetime
 
@@ -192,6 +196,24 @@ class ZoneResponse(BaseModel):
         from_attributes=True,
         frozen=True,
     )
+
+    @field_validator("geometry", mode="before")
+    @classmethod
+    def parse_geometry(cls, v: Any) -> Any:
+        # 1. Handle case where it's already a string (like from ST_AsGeoJSON)
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                return v
+        
+        # 2. Handle the WKBElement (The binary format from your error)
+        # This converts the binary DB format into a standard GeoJSON dict
+        try:
+            return mapping(to_shape(v))
+        except Exception:
+            # If it's already a dict or anything else, just return it
+            return v
 
 
 # =========================================================

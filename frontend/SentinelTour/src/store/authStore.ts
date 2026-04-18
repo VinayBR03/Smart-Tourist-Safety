@@ -2,16 +2,16 @@
 import { create } from 'zustand';
 import { SecureStorage } from '@/utils/storage';
 import { Config } from '@/constants/config';
-import { locationService } from '@/services/locationService';
+import { logoutFlag } from '@/api/logoutFlag';
 import { wsClient } from '@/utils/websocket';
 import { queryClient } from '@/utils/queryClientSingleton';
 import type { User } from '@/types/api';
 
 // ─── Global abort flag ────────────────────────────────────
-// Set to true the instant logout begins. The axios request interceptor
-// checks this synchronously and silently aborts any new request.
-// This prevents the 401 flood between "tokens cleared" and "tabs unmounted".
-export let isLoggingOut = false;
+// Owned by logoutFlag.ts — imported here as a leaf with no further deps.
+// Re-exported so any file that imported `isLoggingOut` from authStore still
+// compiles unchanged.
+export { logoutFlag as isLoggingOut };
 
 interface AuthState {
   user: User | null;
@@ -35,9 +35,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   setLoading: (isLoading) => set({ isLoading }),
 
   logout: async () => {
-    isLoggingOut = true;
+    logoutFlag.set(true);
 
-    try { locationService.stopTracking(); } catch { /* ignore */ }
+    // Lazy import breaks the module-level cycle:
+    //   authStore → locationService → location → client → authStore
+    try {
+      const { locationService } = await import('@/services/locationService');
+      locationService.stopTracking();
+    } catch { /* ignore */ }
     try { wsClient.disconnect(); }          catch { /* ignore */ }
 
     try {
@@ -52,7 +57,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     set({ user: null, isAuthenticated: false });
 
-    setTimeout(() => { isLoggingOut = false; }, 500);
+    setTimeout(() => { logoutFlag.set(false); }, 500);
   },
 
   hydrate: async () => {

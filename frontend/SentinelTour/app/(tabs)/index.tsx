@@ -139,27 +139,28 @@ function NoDataCard({ icon, message, action }: { icon: React.ReactNode; message:
 // ─── Main Screen ──────────────────────────────────────────
 export default function HomeScreen() {
   const t = useThemedStyles();
-  const { user }   = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const { device } = useDeviceStore();
 
   const { data: health, isLoading: healthLoading, refetch: refetchHealth } = useQuery({
     queryKey: ['health', 'latest'], queryFn: healthApi.getLatest,
-    refetchInterval: 15_000, retry: false,
+    refetchInterval: 15_000, retry: false, enabled: isAuthenticated,
   });
   const { data: zones, refetch: refetchZones } = useQuery({
-    queryKey: ['zones'], queryFn: zonesApi.list, staleTime: 60_000,
+    queryKey: ['zones'], queryFn: zonesApi.list, staleTime: 60_000, enabled: isAuthenticated,
   });
   const { data: incidents, refetch: refetchIncidents } = useQuery({
-    queryKey: ['incidents', 'me'], queryFn: () => incidentsApi.listMine({ limit: 3 }), refetchInterval: 60_000,
+    queryKey: ['incidents', 'me'], queryFn: () => incidentsApi.listMine({ limit: 3 }), refetchInterval: 60_000, enabled: isAuthenticated,
   });
 
   useEffect(() => {
+    if (!isAuthenticated) { locationService.stopTracking(); return; }
     (async () => {
       const granted = await locationService.requestPermissions();
       if (granted) locationService.startTracking(() => device?.batteryPercentage ?? undefined);
     })();
     return () => locationService.stopTracking();
-  }, []);
+  }, [isAuthenticated]);
 
   const onRefresh = useCallback(() => { refetchHealth(); refetchZones(); refetchIncidents(); }, []);
 

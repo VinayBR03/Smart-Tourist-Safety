@@ -2,7 +2,11 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { Config } from '@/constants/config';
 import { SecureStorage } from '@/utils/storage';
-import { useAuthStore, isLoggingOut } from '@/store/authStore';
+import { logoutFlag } from '@/api/logoutFlag';
+
+// Kept for backwards-compat: any existing import of `isLoggingOut` from this
+// file still compiles. Prefer importing from logoutFlag directly in new code.
+export { logoutFlag };
 
 let isRefreshing = false;
 let failedQueue: Array<{
@@ -26,7 +30,7 @@ export const apiClient: AxiosInstance = axios.create({
 // ── Request interceptor ───────────────────────────────────
 apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   // Cancel immediately if logout is in progress — before the request leaves the device
-  if (isLoggingOut) {
+  if (logoutFlag.isLoggingOut) {
     const ctrl = new AbortController();
     ctrl.abort();
     config.signal = ctrl.signal;
@@ -43,7 +47,7 @@ apiClient.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
     // Silently drop anything aborted due to logout
-    if (isLoggingOut) return Promise.reject(error);
+    if (logoutFlag.isLoggingOut) return Promise.reject(error);
     if (
       error.name === 'CanceledError' ||
       error.name === 'AbortError'    ||
@@ -57,7 +61,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status !== 401 || original._retry) return Promise.reject(error);
 
     const existingToken = await SecureStorage.get(Config.ACCESS_TOKEN_KEY);
-    if (!existingToken || isLoggingOut) return Promise.reject(error);
+    if (!existingToken || logoutFlag.isLoggingOut) return Promise.reject(error);
 
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
@@ -87,6 +91,10 @@ apiClient.interceptors.response.use(
     } catch (err) {
       processQueue(err, null);
       await SecureStorage.clear([Config.ACCESS_TOKEN_KEY, Config.REFRESH_TOKEN_KEY]);
+
+      // Lazy import — resolved at call-time, not at module-load time.
+      // This is what previously closed the require cycle.
+      const { useAuthStore } = await import('@/store/authStore');
       useAuthStore.getState().logout();
       return Promise.reject(err);
     } finally {

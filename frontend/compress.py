@@ -15,6 +15,10 @@ def zip_folder(folder_path, output_zip):
                 dirs.remove('.git')
             if '.pio' in dirs:
                 dirs.remove('.pio')
+            if '.env' in dirs:
+                dirs.remove('.env')
+            if 'google-services.json' in dirs:
+                dirs.remove('google-services.json')
 
             for file in files:
                 # Build absolute file path
@@ -25,7 +29,7 @@ def zip_folder(folder_path, output_zip):
                 arcname = os.path.relpath(file_path, folder_path)
                 
                 zipf.write(file_path, arcname)
-    print(f"Compressed: {output_zip}")
+    print(f"Compressed: {folder_path} -> {output_zip}")
 
 # Usage
 zip_folder('./sentineltour', 'sentineltour-app.zip')
