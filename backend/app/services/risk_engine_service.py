@@ -26,6 +26,7 @@ from app.services.outbox_service import create_outbox_event
 from app.services.notification_service import create_notification
 from app.services.feature_service import extract_zone_features, normalize_features
 from app.services.internal_ml_service import internal_ml_service
+from app.services.blockchain_service import log_zone_risk
 
 from app.utils.logger import get_logger
 
@@ -268,15 +269,19 @@ def persist_zone_risk(
         )
         db.add(zone_status)
 
-    db.add(
-        ZoneRiskHistory(
+        zone_risk_entry = ZoneRiskHistory(
             zone_id=zone_id,
             risk_score=risk_score,
             risk_level=risk_level.value,
             model_version=model_version,
             recorded_at=now,
         )
-    )
+        db.add(zone_risk_entry)
+
+    tx = log_zone_risk(zone_id, previous_level or "", risk_level.value, risk_score, model_version or "unknown")
+    zone_risk_entry.blockchain_tx_hash = tx
+    if zone_status:
+        zone_status.blockchain_tx_hash = tx
 
     create_audit_log(
         db=db,

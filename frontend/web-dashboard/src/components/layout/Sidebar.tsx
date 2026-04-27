@@ -1,7 +1,7 @@
 // src/components/layout/Sidebar.tsx
 
 import React from 'react';
-import { NavLink } from 'react-router-dom';        // ← removed unused useLocation
+import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useUnreadCount } from '../../hooks/useNotifications';
 import { Footer } from './Footer';
@@ -13,18 +13,19 @@ import { UserRole } from '../../types/enums';
 // ─────────────────────────────────────────────
 
 interface SidebarProps {
-  open:       boolean;
-  collapsed:  boolean;
-  onCollapse: () => void;
-  className?: string;
+  open:            boolean;
+  collapsed:       boolean;
+  onCollapse:      () => void;
+  onOverlayClick?: () => void;
+  className?:      string;
 }
 
 interface NavItem {
-  label:   string;
-  path:    string;
-  icon:    React.ReactNode;
-  roles?:  UserRole[];
-  exact?:  boolean;
+  label:      string;
+  path:       string;
+  icon:       React.ReactNode;
+  roles?:     UserRole[];
+  exact?:     boolean;
   showBadge?: boolean;
 }
 
@@ -237,11 +238,12 @@ function SidebarNavItem({
 
 // ─────────────────────────────────────────────
 // Sidebar
+// z-[2000] ensures it renders above Leaflet map layers (max ~z-700)
 // ─────────────────────────────────────────────
 
-export function Sidebar({ open, collapsed, onCollapse, className = '' }: SidebarProps) {
-  const { user }   = useAuth();
-  const { count }  = useUnreadCount();    // ← count not unreadCount
+export function Sidebar({ open, collapsed, onCollapse, onOverlayClick, className = '' }: SidebarProps) {
+  const { user }  = useAuth();
+  const { count } = useUnreadCount();
 
   if (!user) return null;
 
@@ -255,19 +257,19 @@ export function Sidebar({ open, collapsed, onCollapse, className = '' }: Sidebar
 
   return (
     <>
-      {/* Mobile overlay */}
+      {/* Mobile overlay — above Leaflet, below sidebar panel */}
       {open && (
         <div
-          className="fixed inset-0 z-20 bg-black/50 lg:hidden"
-          onClick={onCollapse}
+          className="fixed inset-0 z-[1999] bg-black/50 lg:hidden"
+          onClick={onOverlayClick ?? onCollapse}
           aria-hidden="true"
         />
       )}
 
-      {/* Panel */}
+      {/* Panel — z-[2000] beats all Leaflet z-indexes */}
       <aside
         className={[
-          'fixed top-0 left-0 z-30 h-full flex flex-col',
+          'fixed top-0 left-0 z-[2000] h-full flex flex-col',
           'bg-white dark:bg-slate-900',
           'border-r border-slate-200 dark:border-slate-700/60',
           'transition-all duration-300 ease-in-out',
@@ -285,10 +287,10 @@ export function Sidebar({ open, collapsed, onCollapse, className = '' }: Sidebar
           ].join(' ')}
         >
           <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-sm">
-            <img 
+            <img
               src={logo}
               className="w-7 h-7"
-              alt="Sentinel Tour Logo" 
+              alt="Sentinel Tour Logo"
             />
           </div>
           {!collapsed && (

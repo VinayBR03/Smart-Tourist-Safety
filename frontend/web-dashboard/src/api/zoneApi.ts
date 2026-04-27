@@ -12,12 +12,21 @@ import type {
 } from '../types/zone';
 
 // ─────────────────────────────────────────────
-// List all zones
+// List all zones (basic, no risk data)
 // GET /zones
 // ─────────────────────────────────────────────
 
 export async function listZones(): Promise<Zone[]> {
   return apiClient.get<Zone[]>('/zones');
+}
+
+// ─────────────────────────────────────────────
+// List all zones with risk status
+// GET /zones/with-status
+// ─────────────────────────────────────────────
+
+export async function listZonesWithStatus(): Promise<ZoneWithStatus[]> {
+  return apiClient.get<ZoneWithStatus[]>('/zones/with-status');
 }
 
 // ─────────────────────────────────────────────

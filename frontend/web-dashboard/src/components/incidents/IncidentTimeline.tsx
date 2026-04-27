@@ -59,7 +59,7 @@ export function IncidentTimeline({ entries, className = '' }: IncidentTimelinePr
                   </span>
                   {entry.changed_by && (
                     <span className="text-xs text-slate-400">
-                      by user #{entry.changed_by}
+                      by user {entry.changed_by}
                     </span>
                   )}
                 </div>

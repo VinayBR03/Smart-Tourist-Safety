@@ -1,5 +1,5 @@
-# app/services/analytics_service.py
 
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, func, case
 from sqlalchemy.orm import Session
 
@@ -13,23 +13,31 @@ from app.models.iot_device import IoTDevice
 # =========================================================
 
 def get_incident_trend(db: Session):
+    """
+    Calculates the number of incidents for every day that has incidents.
+    The frontend chart is responsible for windowing this data into a 30-day view
+    anchored to the latest incident, so we provide all available daily counts.
+    Filtering by the last 30 days from `now()` here would fail if the dataset
+    is historical or for a different time period (e.g., during testing).
+    """
+
+    # Use to_char to guarantee a YYYY-MM-DD string response from PostgreSQL directly
+    date_col = func.to_char(Incident.created_at, "YYYY-MM-DD")
 
     stmt = (
         select(
-            func.to_char(Incident.created_at, "Dy").label("day"),
+            date_col.label("date"),
             func.count(Incident.id).label("count")
         )
-        .group_by(func.to_char(Incident.created_at, "Dy"))
-        .order_by(func.min(Incident.created_at))
+        .where(Incident.deleted_at.is_(None))
+        .group_by(date_col)
+        .order_by(date_col.asc())
     )
 
     rows = db.execute(stmt).all()
 
     return [
-        {
-            "day":   r.day,
-            "count": r.count,
-        }
+        {"date": r.date, "count": r.count}
         for r in rows
     ]
 
@@ -51,7 +59,7 @@ def get_incident_status_counts(db: Session):
     rows = db.execute(stmt).all()
 
     return {
-        str(status): count
+        str(status).split('.')[-1]: count
         for status, count in rows
     }
 
@@ -73,7 +81,7 @@ def get_zone_risk_counts(db: Session):
     rows = db.execute(stmt).all()
 
     return {
-        str(level): count
+        str(level).split('.')[-1]: count
         for level, count in rows
     }
 
@@ -96,7 +104,7 @@ def get_device_status_counts(db: Session):
     rows = db.execute(stmt).all()
 
     return {
-        str(status): count
+        str(status).split('.')[-1]: count
         for status, count in rows
     }
 

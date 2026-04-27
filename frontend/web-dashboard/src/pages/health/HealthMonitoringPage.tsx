@@ -70,7 +70,7 @@ function TouristTelemetryRow({
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-              Tourist #{entry.tourist_id}
+              Tourist {entry.tourist_id}
             </p>
             <p className="text-xs text-slate-400">
               {formatTimeAgo(entry.recorded_at)}
@@ -298,7 +298,7 @@ export function HealthMonitoringPage() {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                      Tourist #{selected.tourist_id}
+                      Tourist {selected.tourist_id}
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
                       Last updated {formatTimeAgo(selected.recorded_at)}

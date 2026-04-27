@@ -18,7 +18,6 @@ import { ZoneTable } from '../../components/zones/ZoneTable';
 import { ZoneCard } from '../../components/zones/ZoneCard';
 import { ZoneForm } from '../../components/zones/ZoneForm';
 import { RiskLevel } from '../../types/enums';
-import type { ZoneWithStatus } from '../../types/zone';
 import type {
   ZoneCreateCircularRequest,
   ZoneCreatePolygonRequest,
@@ -47,8 +46,8 @@ export function ZonesPage() {
   const [viewMode,   setViewMode]   = useState<ViewMode>('table');
   const [showCreate, setShowCreate] = useState(false);
 
-  // ── Cast all zones to ZoneWithStatus ──
-  const allZones = useMemo(() => zones as ZoneWithStatus[], [zones]);
+  // ── zones is already ZoneWithStatus[] from useZones ──
+  const allZones = zones;
 
   // ── Filtered zones ──
   const filtered = useMemo(() => {

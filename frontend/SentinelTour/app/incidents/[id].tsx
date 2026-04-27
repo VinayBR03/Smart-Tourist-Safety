@@ -1,5 +1,9 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useState } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  ActivityIndicator, Image, Linking,
+} from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Header } from '@/components/layout/Header';
@@ -7,13 +11,12 @@ import { Card } from '@/components/ui/Card';
 import { Badge, incidentVariant } from '@/components/ui/Badge';
 import { Icon } from '@/components/ui/Icons';
 import { incidentsApi } from '@/api/incidents';
+import { mediaApi } from '@/api/media';
 import { Typography, Spacing, Radius } from '@/constants/theme';
 import { format, formatDistanceToNow } from 'date-fns';
-import type { IncidentStatus, IncidentTimelineEntry } from '@/types/api';
+import type { IncidentStatus, IncidentTimelineEntry, MediaResponse } from '@/types/api';
 import { useThemedStyles } from '@/utils/themedStyles';
 import { useColors } from '@/context/ThemeContext';
-
-const STATUS_ORDER: IncidentStatus[] = ['OPEN', 'IN_PROGRESS', 'ESCALATED', 'RESOLVED', 'CLOSED'];
 
 function TimelineStep({ entry, isLast, index }: { entry: IncidentTimelineEntry; isLast: boolean; index: number }) {
   const C = useColors();
@@ -53,6 +56,86 @@ function InfoRow({ label, value, icon }: { label: string; value: string; icon: R
   );
 }
 
+function MediaThumb({ mediaId, mediaType }: { mediaId: number; mediaType: string }) {
+  const C = useColors();
+  const isVideo = mediaType.includes('VIDEO');
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['media', mediaId, 'url'],
+    queryFn: () => mediaApi.getUrl(mediaId),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (isLoading) {
+    return (
+      <View style={[styles.mediaThumbnail, { backgroundColor: C.surface, borderColor: C.border }]}>
+        <ActivityIndicator size="small" color={C.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      style={[styles.mediaThumbnail, { backgroundColor: C.surface, borderColor: C.border }]}
+      onPress={() => data?.url && Linking.openURL(data.url)}
+      activeOpacity={0.75}
+    >
+      {isVideo ? (
+        <View style={[styles.mediaVideoOverlay, { backgroundColor: 'rgba(0,0,0,0.7)' }]}>
+          <Icon.Play size={28} color="#fff" />
+        </View>
+      ) : (
+        data?.url
+          ? <Image source={{ uri: data.url }} style={styles.mediaImage} resizeMode="cover" />
+          : <Icon.Image size={28} color={C.textMuted} />
+      )}
+      <View style={[styles.mediaTypeBadge, { backgroundColor: isVideo ? '#7C3AED' : '#3B82F6' }]}>
+        {isVideo ? <Icon.Video size={10} color="#fff" /> : <Icon.Camera size={10} color="#fff" />}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function MediaSection({ incidentId }: { incidentId: number }) {
+  const C = useColors();
+
+  const { data: media = [], isLoading } = useQuery({
+    queryKey: ['incident', incidentId, 'media'],
+    queryFn: () => incidentsApi.getMedia(incidentId),
+    enabled: !!incidentId,
+  });
+
+  if (isLoading || media.length === 0) return null;
+
+  const evidence   = media.filter((m) => m.media_type.startsWith('INCIDENT_EVIDENCE'));
+  const resolution = media.filter((m) => m.media_type.startsWith('INCIDENT_RESOLUTION'));
+
+  return (
+    <>
+      {evidence.length > 0 && (
+        <Animated.View entering={FadeInDown.duration(400).delay(200)}>
+          <Text style={[styles.sectionTitle, { color: C.textMuted }]}>EVIDENCE</Text>
+          <Card>
+            <View style={styles.mediaGrid}>
+              {evidence.map((m) => <MediaThumb key={m.id} mediaId={m.id} mediaType={m.media_type} />)}
+            </View>
+          </Card>
+        </Animated.View>
+      )}
+      {resolution.length > 0 && (
+        <Animated.View entering={FadeInDown.duration(400).delay(240)}>
+          <Text style={[styles.sectionTitle, { color: C.textMuted }]}>RESOLUTION PHOTOS</Text>
+          <Card>
+            <View style={styles.mediaGrid}>
+              {resolution.map((m) => <MediaThumb key={m.id} mediaId={m.id} mediaType={m.media_type} />)}
+            </View>
+          </Card>
+        </Animated.View>
+      )}
+    </>
+  );
+}
+
 export default function IncidentDetailScreen() {
   const t = useThemedStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -70,9 +153,7 @@ export default function IncidentDetailScreen() {
     enabled: !!incidentId,
   });
 
-  const isLoading = incLoading || tlLoading;
-
-  if (isLoading) {
+  if (incLoading || tlLoading) {
     return (
       <View style={[styles.root, t.bg]}>
         <Header title="Incident Details" showBack />
@@ -94,16 +175,15 @@ export default function IncidentDetailScreen() {
 
   return (
     <View style={[styles.root, t.bg]}>
-      <Header title={`Incident #${incident.id}`} showBack />
+      <Header title={`Incident ${incident.id}`} showBack />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* Status card */}
         <Animated.View entering={FadeInDown.duration(400)}>
           <Card style={styles.statusCard} elevated>
             <View style={styles.statusHeader}>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.incidentTitle, t.textPrimary]}>
-                  {incident.description ?? `Incident #${incident.id}`}
+                  {incident.description ?? `Incident ${incident.id}`}
                 </Text>
                 <Text style={[styles.incidentTime, t.textMuted]}>
                   {formatDistanceToNow(new Date(incident.created_at), { addSuffix: true })}
@@ -111,18 +191,29 @@ export default function IncidentDetailScreen() {
               </View>
               <Badge label={incident.status?.replace('_', ' ') ?? 'UNKNOWN'} variant={incidentVariant(incident.status)} size="sm" dot />
             </View>
+            {incident.resolution_note && (
+              <View style={[styles.resolutionNote, { backgroundColor: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.2)' }]}>
+                <Icon.CheckCircle size={14} color="#10B981" />
+                <Text style={[styles.resolutionNoteText, { color: '#10B981' }]}>{incident.resolution_note}</Text>
+              </View>
+            )}
           </Card>
         </Animated.View>
 
-        {/* Details */}
         <Animated.View entering={FadeInDown.duration(400).delay(80)}>
           <Text style={[styles.sectionTitle, t.textMuted]}>DETAILS</Text>
           <Card>
-            <InfoRow label="Source"   value={incident.source ?? ''}   icon={<Icon.Phone size={16} color="#3B82F6" />} />
+            <InfoRow label="Source"  value={incident.source ?? ''} icon={<Icon.Phone size={16} color="#3B82F6" />} />
             <View style={[styles.divider, { backgroundColor: t.C.border }]} />
-            <InfoRow label="Created"  value={incident.created_at ? format(new Date(incident.created_at), 'MMM d, yyyy HH:mm') : ''} icon={<Icon.Clock size={16} color={t.C.textMuted} />} />
+            <InfoRow label="Created" value={incident.created_at ? format(new Date(incident.created_at), 'MMM d, yyyy HH:mm') : ''} icon={<Icon.Clock size={16} color={t.C.textMuted} />} />
             <View style={[styles.divider, { backgroundColor: t.C.border }]} />
-            <InfoRow label="Updated"  value={incident.updated_at ? format(new Date(incident.updated_at), 'MMM d, yyyy HH:mm') : ''} icon={<Icon.RefreshCw size={16} color={t.C.textMuted} />} />
+            <InfoRow label="Updated" value={incident.updated_at ? format(new Date(incident.updated_at), 'MMM d, yyyy HH:mm') : ''} icon={<Icon.RefreshCw size={16} color={t.C.textMuted} />} />
+            {incident.resolved_at && (
+              <>
+                <View style={[styles.divider, { backgroundColor: t.C.border }]} />
+                <InfoRow label="Resolved" value={format(new Date(incident.resolved_at), 'MMM d, yyyy HH:mm')} icon={<Icon.CheckCircle size={16} color="#10B981" />} />
+              </>
+            )}
             {incident.latitude && incident.longitude && (
               <>
                 <View style={[styles.divider, { backgroundColor: t.C.border }]} />
@@ -136,7 +227,8 @@ export default function IncidentDetailScreen() {
           </Card>
         </Animated.View>
 
-        {/* Timeline */}
+        <MediaSection incidentId={incidentId} />
+
         {timeline.length > 0 && (
           <Animated.View entering={FadeInDown.duration(400).delay(160)}>
             <Text style={[styles.sectionTitle, t.textMuted]}>TIMELINE</Text>
@@ -161,18 +253,25 @@ const styles = StyleSheet.create({
   errorText:     { fontSize: Typography.base, fontFamily: 'Inter_400Regular' },
   statusCard:    { gap: Spacing.sm },
   statusHeader:  { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: Spacing.sm },
-  incidentTitle: { fontSize: Typography.base, fontFamily: 'SpaceGrotesk_600SemiBold', flex: 1 },
+  incidentTitle: { fontSize: Typography.base, fontFamily: 'SpaceGrotesk_600SemiBold' },
   incidentTime:  { fontSize: Typography.xs, fontFamily: 'Inter_400Regular', marginTop: 4 },
+  resolutionNote:     { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.xs, padding: Spacing.sm, borderRadius: Radius.lg, borderWidth: 1, marginTop: Spacing.xs },
+  resolutionNoteText: { flex: 1, fontSize: Typography.xs, fontFamily: 'Inter_400Regular', lineHeight: 18 },
   sectionTitle:  { fontSize: Typography.xs, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: 0.8, textTransform: 'uppercase', marginTop: Spacing.base, marginBottom: Spacing.xs },
   infoRow:       { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, paddingVertical: Spacing.sm },
   infoIcon:      { width: 28, alignItems: 'center', paddingTop: 2 },
   infoLabel:     { fontSize: Typography.xs, fontFamily: 'Inter_400Regular', marginBottom: 2 },
   infoValue:     { fontSize: Typography.sm, fontFamily: 'Inter_500Medium' },
   divider:       { height: 1 },
-  timelineCard:  { paddingVertical: Spacing.sm },
-  timelineStep:  { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, paddingVertical: Spacing.sm, position: 'relative' },
-  timelineLine:  { position: 'absolute', left: 10, top: 32, bottom: -8, width: 1.5 },
-  timelineDot:   { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#374151', backgroundColor: '#1F2937', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  mediaGrid:        { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, padding: Spacing.xs },
+  mediaThumbnail:   { width: 96, height: 96, borderRadius: Radius.lg, borderWidth: 1, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  mediaImage:       { width: '100%', height: '100%' },
+  mediaVideoOverlay:{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  mediaTypeBadge:   { position: 'absolute', bottom: 4, right: 4, width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  timelineCard:     { paddingVertical: Spacing.sm },
+  timelineStep:     { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, paddingVertical: Spacing.sm, position: 'relative' },
+  timelineLine:     { position: 'absolute', left: 10, top: 32, bottom: -8, width: 1.5 },
+  timelineDot:      { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#374151', backgroundColor: '#1F2937', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   timelineDotInner: { width: 8, height: 8, borderRadius: 4 },
   timelineContent:  { flex: 1, gap: 4 },
   timelineTop:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },

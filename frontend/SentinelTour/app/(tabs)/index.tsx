@@ -93,7 +93,7 @@ function IncidentRow({ incident, index }: { incident: IncidentSummary; index: nu
         <View style={[styles.incidentDot, { backgroundColor: statusColor }]} />
         <View style={{ flex: 1 }}>
           <Text style={[styles.incidentDesc, { color: C.textPrimary }]} numberOfLines={1}>
-            {incident.description ?? `Incident #${incident.id}`}
+            {incident.description ?? `Incident ${incident.id}`}
           </Text>
           <Text style={[styles.incidentMeta, { color: C.textMuted }]}>
             {incident.source} · {formatDistanceToNow(new Date(incident.created_at), { addSuffix: true })}

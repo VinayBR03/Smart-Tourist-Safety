@@ -56,7 +56,7 @@ export function IncidentCard({ incident, zoneName, onClick, className = '' }: In
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                Incident #{incident.id}
+                Incident {incident.id}
               </p>
               {zoneName && (
                 <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">

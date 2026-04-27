@@ -46,6 +46,16 @@ const RISK_LABELS: Record<string, string> = {
 };
 
 // ─────────────────────────────────────────────
+// Normalise backend enum keys
+// Backend may return "RiskLevel.LOW" or just "LOW"
+// ─────────────────────────────────────────────
+
+function normalizeKey(key: string): string {
+  const dot = key.lastIndexOf('.');
+  return dot !== -1 ? key.slice(dot + 1) : key;
+}
+
+// ─────────────────────────────────────────────
 // Custom tooltip
 // ─────────────────────────────────────────────
 
@@ -94,11 +104,17 @@ export function ZoneRiskChart({
   if (error)     return <div className="text-sm text-red-500 dark:text-red-400 py-8 text-center">{error}</div>;
   if (!data)     return <EmptyState title="No zone data" compact />;
 
+  // Normalize keys to handle if backend returns "RiskLevel.LOW" instead of just "LOW"
+  const normalizedCounts: Record<string, number> = {};
+  for (const [k, v] of Object.entries(data.risk_counts)) {
+    normalizedCounts[normalizeKey(k)] = v;
+  }
+
   // data.risk_counts is the correct field per analyticsApi.ts → ZoneRiskResponse
   const chartData = (['LOW', 'MEDIUM', 'HIGH'] as const).map((risk) => ({
     risk,
     label: RISK_LABELS[risk],
-    value: data.risk_counts[risk] ?? 0,
+    value: normalizedCounts[risk] ?? 0,
     fill:  RISK_COLORS[risk],
   }));
 

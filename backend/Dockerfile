@@ -20,6 +20,7 @@ RUN pip install --upgrade pip && \
         rm -rf /install/local; \
     fi
 
+# ─────────────────────────────────────────────
 FROM python:3.10-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -27,7 +28,6 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 ENV PATH="/usr/local/bin:$PATH"
 
-# libgdal-dev works across all Debian versions — libgdal32 was renamed in trixie
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     libgdal-dev \
@@ -41,6 +41,9 @@ RUN groupadd --gid 1001 appgroup && \
 
 WORKDIR /app
 
+# Create secrets dir so the volume mount has a target owned by appuser
+RUN mkdir -p /app/app/secrets && chown -R appuser:appgroup /app/app/secrets
+
 COPY --chown=appuser:appgroup . .
 
 USER appuser
@@ -50,10 +53,13 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
+# Cap workers at 4 — nproc inside Docker sees ALL host CPUs
 CMD ["sh", "-c", \
-     "gunicorn app.main:app \
+     "WORKERS=$(( 2 * $(nproc) + 1 )); \
+      [ $WORKERS -gt 4 ] && WORKERS=4; \
+      gunicorn app.main:app \
       -k uvicorn.workers.UvicornWorker \
-      -w $(( 2 * $(nproc) + 1 )) \
+      -w $WORKERS \
       -b 0.0.0.0:8000 \
       --timeout 120 \
       --keep-alive 5 \

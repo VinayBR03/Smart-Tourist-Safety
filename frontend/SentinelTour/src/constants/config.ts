@@ -1,7 +1,8 @@
 import Constants from 'expo-constants';
 
 const debuggerHost = Constants.expoConfig?.hostUri;
-const currentHost = debuggerHost?.split(':').shift() || 'localhost';
+const currentHost  = debuggerHost?.split(':').shift() || 'localhost';
+
 export const Config = {
   API_BASE_URL: `http://${currentHost}:8000`,
   WS_BASE_URL:  `ws://${currentHost}:8000`,
@@ -12,11 +13,15 @@ export const Config = {
   LOCATION_UPDATE_INTERVAL: 30_000,
   HEALTH_POLL_INTERVAL:     10_000,
 
-  BLE_SERVICE_UUID:          '12345678-1234-1234-1234-123456789abc',
-  BLE_CHAR_DEVICE_ID_UUID:   '12345678-1234-1234-1234-123456789ab0',  // READ — firmware device_id string (e.g. "WB001")
-  BLE_CHAR_HEALTH_UUID:      '12345678-1234-1234-1234-123456789abd',
-  BLE_CHAR_BATTERY_UUID:     '12345678-1234-1234-1234-123456789abe',
-  BLE_CHAR_SOS_UUID:         '12345678-1234-1234-1234-123456789abf',
+  BLE_SERVICE_UUID:        '12345678-1234-1234-1234-123456789abc',
+  BLE_CHAR_DEVICE_ID_UUID: '12345678-1234-1234-1234-123456789ab0', // READ
+  BLE_CHAR_HEALTH_UUID:    '12345678-1234-1234-1234-123456789abd', // NOTIFY
+  BLE_CHAR_BATTERY_UUID:   '12345678-1234-1234-1234-123456789abe', // NOTIFY
+  BLE_CHAR_SOS_UUID:       '12345678-1234-1234-1234-123456789abf', // NOTIFY
+  BLE_CHAR_NET_UUID:       '12345678-1234-1234-1234-123456789ac0', // WRITE (phone→wristband)
 
   NOMINATIM_URL: 'https://nominatim.openstreetmap.org',
+
+  // How often the phone writes internet status to wristband (ms)
+  NET_STATUS_WRITE_INTERVAL: 10_000,
 } as const;

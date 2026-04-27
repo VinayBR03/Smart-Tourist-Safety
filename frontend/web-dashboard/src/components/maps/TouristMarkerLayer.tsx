@@ -41,7 +41,7 @@ export function TouristMarkerLayer({ locations, onMarkerClick }: TouristMarkerLa
           >
             <Tooltip direction="top" offset={[0, -8]}>
               <div className="text-xs min-w-[120px]">
-                <p className="font-semibold text-slate-700">Tourist #{loc.tourist_id}</p>
+                <p className="font-semibold text-slate-700">Tourist {loc.tourist_id}</p>
                 <p className="text-slate-500 mt-0.5">
                   {formatTimeAgo(loc.updated_at)}
                   {stale && <span className="text-amber-500 ml-1">(stale)</span>}

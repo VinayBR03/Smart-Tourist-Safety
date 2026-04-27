@@ -310,6 +310,46 @@ def list_zones(db: Session) -> List[Zone]:
 
 
 # =========================================================
+# List Zones With Status (Dashboard View)
+# =========================================================
+
+def list_zones_with_status(db: Session) -> List[dict]:
+
+    zones = (
+        db.query(Zone)
+        .filter(Zone.deleted_at.is_(None))
+        .order_by(Zone.created_at.desc())
+        .all()
+    )
+
+    zone_ids = [z.id for z in zones]
+
+    status_map: dict = {}
+    if zone_ids:
+        statuses = (
+            db.query(ZoneStatus)
+            .filter(ZoneStatus.zone_id.in_(zone_ids))
+            .all()
+        )
+        status_map = {s.zone_id: s for s in statuses}
+
+    result = []
+    for zone in zones:
+        s = status_map.get(zone.id)
+        result.append({
+            **{
+                k: v for k, v in zone.__dict__.items()
+                if not k.startswith('_')
+            },
+            "risk_score": s.risk_score if s else None,
+            "risk_level": s.risk_level if s else None,
+            "status_updated_at": s.updated_at if s else None,
+        })
+
+    return result
+
+
+# =========================================================
 # Current Risk Status
 # =========================================================
 

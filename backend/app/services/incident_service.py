@@ -29,7 +29,8 @@ from app.core.exceptions import (
 
 from app.services.audit_service import create_audit_log
 from app.services.outbox_service import create_outbox_event
-from app.services.notification_service import create_notification
+from app.services.notification_service import create_notification, publish_after_commit
+from app.services.blockchain_service import log_incident_status
 
 from app.utils.logger import get_logger
 
@@ -181,6 +182,10 @@ def create_incident(
         )
     )
 
+    log_incident_status(
+        incident.id, None, IncidentStatus.OPEN.value, tourist_id
+    )
+
     create_audit_log(
         db=db,
         user_id=tourist_id,
@@ -201,7 +206,7 @@ def create_incident(
 
     create_notification(
         db=db,
-        user_id=None,
+        user_id=tourist_id,
         event_type="INCIDENT_CREATED",
         channel=NotificationChannel.IN_APP,
         severity=NotificationSeverity.WARNING,
@@ -310,14 +315,40 @@ def update_incident_status(
         )
     )
 
+    log_incident_status(
+        incident.id, current_status.value, new_status.value, performed_by
+    )
+
     create_outbox_event(
         db=db,
         topic="incident.updated",
         payload={
             "incident_id": incident.id,
-            "status": new_status.value,
+            "status":      new_status.value,
+            "tourist_id":  incident.tourist_id,
         },
     )
+
+    # Map status → existing locale template key
+    _STATUS_EVENT = {
+        IncidentStatus.IN_PROGRESS: "INCIDENT_IN_PROGRESS",
+        IncidentStatus.ESCALATED:   "INCIDENT_ESCALATED",
+        IncidentStatus.RESOLVED:    "INCIDENT_RESOLVED",
+        IncidentStatus.CLOSED:      "INCIDENT_CLOSED",
+        IncidentStatus.CANCELLED:   "INCIDENT_CANCELLED",
+    }
+    notification_event_type = _STATUS_EVENT.get(new_status)
+    if notification_event_type:
+        create_notification(
+            db=db,
+            user_id=incident.tourist_id,
+            event_type=notification_event_type,
+            channel=NotificationChannel.IN_APP,
+            severity=NotificationSeverity.INFO,
+            related_entity_type=EntityType.INCIDENT,
+            related_entity_id=incident.id,
+            context={"incident_id": incident.id, "new_status": new_status.value},
+        )
 
     return incident
 

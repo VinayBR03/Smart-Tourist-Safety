@@ -23,6 +23,7 @@ from app.core.exceptions import (
 
 from app.services.audit_service import create_audit_log
 from app.services.outbox_service import create_outbox_event
+from app.services.blockchain_service import log_assignment
 from app.utils.logger import get_logger
 
 
@@ -154,6 +155,9 @@ def assign_incident(
 
     logger.info("Incident assigned", extra={"incident_id": incident_id})
 
+    tx = log_assignment(incident_id, authority_id, performed_by or 0, "ASSIGN")
+    assignment.blockchain_tx_hash = tx
+
     return assignment
 
 
@@ -217,6 +221,9 @@ def reassign_incident(
     )
 
     logger.info("Incident reassigned", extra={"incident_id": incident_id})
+    
+    tx = log_assignment(incident_id, new_authority_id, performed_by or 0, "REASSIGN")
+    new_assignment.blockchain_tx_hash = tx
 
     return new_assignment
 
@@ -267,6 +274,8 @@ def unassign_incident(
 
     logger.info("Incident unassigned", extra={"incident_id": incident_id})
 
+    tx = log_assignment(incident_id, authority_id, performed_by or 0, "UNASSIGN")
+    current.blockchain_tx_hash = tx
 
 # =========================================================
 # Authority Workload

@@ -174,6 +174,7 @@ class IncidentResponse(BaseModel):
 class IncidentSummaryResponse(BaseModel):
     id: int
     status: IncidentStatus
+    source: IncidentSource
     zone_id: Optional[int]
     is_auto_generated: bool
     created_at: datetime

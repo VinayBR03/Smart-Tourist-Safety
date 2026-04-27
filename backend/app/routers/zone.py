@@ -32,6 +32,7 @@ from app.services.zone_service import (
     update_zone,
     get_zone_by_id,
     list_zones,
+    list_zones_with_status,
     get_zone_status,
     get_zone_risk_history,
 )
@@ -133,6 +134,22 @@ def fetch_zones(
     _: User = Depends(get_current_user),
 ):
     return list_zones(db)
+
+
+# =========================================================
+# List Zones With Status (Admin / Authority)
+# =========================================================
+
+@router.get(
+    "/with-status",
+    response_model=List[ZoneWithStatusResponse],
+    status_code=status.HTTP_200_OK,
+)
+def fetch_zones_with_status(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    return list_zones_with_status(db)
 
 
 # =========================================================

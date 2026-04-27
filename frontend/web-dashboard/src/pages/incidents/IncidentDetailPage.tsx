@@ -1,7 +1,7 @@
 // src/pages/incidents/IncidentDetailPage.tsx
 
-import { useState, useCallback }    from 'react';
-import { useParams, useNavigate }   from 'react-router-dom';
+import { useState, useCallback, useEffect }  from 'react';
+import { useParams, useNavigate }            from 'react-router-dom';
 import {
   ArrowLeft,
   RefreshCw,
@@ -14,6 +14,9 @@ import {
   Calendar,
   FileText,
   Camera,
+  Image,
+  Video,
+  ExternalLink,
 } from 'lucide-react';
 
 import {
@@ -37,8 +40,13 @@ import { MediaUploader }          from '../../components/media/MediaUploader';
 
 import { IncidentStatus, IncidentSource, MediaType } from '../../types/enums';
 import type { ZoneWithStatus }                       from '../../types/zone';
-import { formatDateTime, formatDuration }            from '../../utils/formatDate';
-import { uploadMediaFull } from '@/api/mediaApi';
+import type { IncidentMediaSummary }                 from '../../types/media';
+import { formatDate, formatDateTime, formatDuration } from '../../utils/formatDate';
+import {
+  uploadMediaFull,
+  listIncidentMedia,
+  getMediaUrl,
+} from '../../api/mediaApi';
 
 // ─────────────────────────────────────────────
 // Status transition map
@@ -73,7 +81,7 @@ const SOURCE_LABELS: Record<IncidentSource, string> = {
 };
 
 // ─────────────────────────────────────────────
-// Detail field component
+// Detail field
 // ─────────────────────────────────────────────
 
 function DetailField({
@@ -103,8 +111,161 @@ function DetailField({
 }
 
 // ─────────────────────────────────────────────
+// Media gallery
+// ─────────────────────────────────────────────
+
+const MEDIA_TYPE_LABELS: Record<string, string> = {
+  [MediaType.INCIDENT_EVIDENCE_PHOTO]:   'Evidence Photo',
+  [MediaType.INCIDENT_EVIDENCE_VIDEO]:   'Evidence Video',
+  [MediaType.INCIDENT_RESOLUTION_PHOTO]: 'Resolution Photo',
+  [MediaType.INCIDENT_RESOLUTION_VIDEO]: 'Resolution Video',
+};
+
+const EVIDENCE_TYPES  = [MediaType.INCIDENT_EVIDENCE_PHOTO,   MediaType.INCIDENT_EVIDENCE_VIDEO];
+const RESOLUTION_TYPES = [MediaType.INCIDENT_RESOLUTION_PHOTO, MediaType.INCIDENT_RESOLUTION_VIDEO];
+
+interface MediaItemProps {
+  item: IncidentMediaSummary;
+}
+
+function MediaItem({ item }: MediaItemProps) {
+  const [url,      setUrl]      = useState<string | null>(null);
+  const [fetching, setFetching] = useState(false);
+
+  const isVideo = item.media_type === MediaType.INCIDENT_EVIDENCE_VIDEO ||
+                  item.media_type === MediaType.INCIDENT_RESOLUTION_VIDEO;
+
+  const fetchUrl = useCallback(async () => {
+    if (url) {
+      window.open(url, '_blank', 'noopener');
+      return;
+    }
+    setFetching(true);
+    try {
+      const res = await getMediaUrl(item.id);
+      setUrl(res.url);
+      window.open(res.url, '_blank', 'noopener');
+    } catch {
+      // silently fail
+    } finally {
+      setFetching(false);
+    }
+  }, [item.id, url]);
+
+  return (
+    <button
+      onClick={fetchUrl}
+      disabled={fetching}
+      className={[
+        'flex items-center gap-3 w-full p-3 rounded-xl border text-left transition-all',
+        'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700',
+        'hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:shadow-sm',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
+        fetching ? 'opacity-60' : '',
+      ].join(' ')}
+    >
+      <div className="w-9 h-9 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center flex-shrink-0">
+        {isVideo
+          ? <Video className="w-4 h-4 text-purple-500" />
+          : <Image className="w-4 h-4 text-blue-500" />
+        }
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+          {MEDIA_TYPE_LABELS[item.media_type] ?? item.media_type}
+        </p>
+        <p className="text-[10px] text-slate-400 mt-0.5">
+          {item.content_type} · {formatDate(item.created_at)}
+        </p>
+      </div>
+      <ExternalLink className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+    </button>
+  );
+}
+
+interface MediaGalleryProps {
+  incidentId:    number;
+  refreshSignal: number;
+}
+
+function MediaGallery({ incidentId, refreshSignal }: MediaGalleryProps) {
+  const [media,     setMedia]     = useState<IncidentMediaSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setIsLoading(true);
+      try {
+        const items = await listIncidentMedia(incidentId);
+        if (!cancelled) setMedia(items);
+      } catch {
+        // silently ignore
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [incidentId, refreshSignal]);
+
+  const evidenceItems   = media.filter((m) => EVIDENCE_TYPES.includes(m.media_type));
+  const resolutionItems = media.filter((m) => RESOLUTION_TYPES.includes(m.media_type));
+
+  if (isLoading) {
+    return <Loader size="sm" center label="Loading media…" />;
+  }
+
+  if (media.length === 0) {
+    return (
+      <EmptyState
+        title="No media attached"
+        message="Upload evidence or resolution photos/videos using the buttons above."
+        compact
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {evidenceItems.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+            Evidence ({evidenceItems.length})
+          </p>
+          <div className="space-y-2">
+            {evidenceItems.map((m) => <MediaItem key={m.id} item={m} />)}
+          </div>
+        </div>
+      )}
+      {resolutionItems.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+            Resolution ({resolutionItems.length})
+          </p>
+          <div className="space-y-2">
+            {resolutionItems.map((m) => <MediaItem key={m.id} item={m} />)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
 // IncidentDetailPage
 // ─────────────────────────────────────────────
+
+type UploadMode = 'evidence_photo' | 'evidence_video' | 'resolution_photo' | 'resolution_video';
+
+const UPLOAD_MODE_CONFIG: Record<UploadMode, { label: string; mediaType: MediaType; accept: string }> = {
+  evidence_photo:    { label: 'Upload Evidence Photo',    mediaType: MediaType.INCIDENT_EVIDENCE_PHOTO,   accept: 'image/*' },
+  evidence_video:    { label: 'Upload Evidence Video',    mediaType: MediaType.INCIDENT_EVIDENCE_VIDEO,   accept: 'video/*' },
+  resolution_photo:  { label: 'Upload Resolution Photo',  mediaType: MediaType.INCIDENT_RESOLUTION_PHOTO, accept: 'image/*' },
+  resolution_video:  { label: 'Upload Resolution Video',  mediaType: MediaType.INCIDENT_RESOLUTION_VIDEO, accept: 'video/*' },
+};
 
 export function IncidentDetailPage() {
   const { incidentId }           = useParams<{ incidentId: string }>();
@@ -117,19 +278,18 @@ export function IncidentDetailPage() {
   const { timeline, isLoading: timelineLoading }    = useIncidentTimeline(id);
   const { zones }                                   = useZones();
 
-  const mutations = useIncidentMutations(() => {
-    refetch();
-  });
+  const mutations = useIncidentMutations(() => { refetch(); });
 
-  const [showResolve,        setShowResolve]        = useState(false);
-  const [resolutionNote,     setResolutionNote]      = useState('');
-  const [showStatusModal,    setShowStatusModal]     = useState(false);
-  const [showMediaUploader,  setShowMediaUploader]   = useState(false);
+  const [showResolve,       setShowResolve]       = useState(false);
+  const [resolutionNote,    setResolutionNote]     = useState('');
+  const [showStatusModal,   setShowStatusModal]    = useState(false);
+  const [uploadMode,        setUploadMode]         = useState<UploadMode | null>(null);
+  const [mediaRefresh,      setMediaRefresh]       = useState(0);
 
   // ── Zone lookup ──
   const zoneMap = Object.fromEntries((zones as ZoneWithStatus[]).map((z) => [z.id, z.name]));
 
-  // ── Is terminal ──
+  // ── Terminal state ──
   const isTerminal = incident
     ? [
         IncidentStatus.RESOLVED,
@@ -190,13 +350,13 @@ export function IncidentDetailPage() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
-        title={`Incident #${incident.id}`}
+        title={`Incident ${incident.id}`}
         subtitle={`Reported ${formatDateTime(incident.created_at)} · Duration: ${formatDuration(incident.created_at, incident.resolved_at)}`}
         icon={<AlertTriangle className="w-5 h-5" />}
         breadcrumbs={[
           { label: 'Dashboard', href: '/' },
           { label: 'Incidents', href: '/incidents' },
-          { label: `#${incident.id}` },
+          { label: `${incident.id}` },
         ]}
         action={
           <div className="flex items-center gap-2">
@@ -223,7 +383,8 @@ export function IncidentDetailPage() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Left column — main details */}
         <div className="xl:col-span-2 space-y-4">
-          {/* Status + actions card */}
+
+          {/* Status + actions */}
           <Card>
             <CardBody>
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -238,7 +399,7 @@ export function IncidentDetailPage() {
                 </div>
 
                 {canAct && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {availableTransitions.length > 0 && (
                       <Button
                         variant="secondary"
@@ -258,14 +419,6 @@ export function IncidentDetailPage() {
                           onClick={() => setShowResolve(true)}
                         >
                           Resolve
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          leftIcon={<Camera className="w-4 h-4" />}
-                          onClick={() => setShowMediaUploader(true)}
-                        >
-                          Add Media
                         </Button>
                       </>
                     )}
@@ -314,7 +467,7 @@ export function IncidentDetailPage() {
                 <DetailField
                   icon={<User className="w-4 h-4" />}
                   label="Reported by Tourist"
-                  value={incident.tourist_id ? `#${incident.tourist_id}` : 'System'}
+                  value={incident.tourist_id ? `${incident.tourist_id}` : 'System'}
                 />
                 <DetailField
                   icon={<Calendar className="w-4 h-4" />}
@@ -338,6 +491,60 @@ export function IncidentDetailPage() {
                 <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
                   {incident.description}
                 </p>
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* ── Media section ── */}
+          <Card>
+            <CardBody>
+              <div className="flex items-center justify-between mb-4">
+                <SectionHeader
+                  title="Photos &amp; Videos"
+                  icon={<Camera className="w-5 h-5" />}
+                  size="sm"
+                />
+                {/* Upload buttons — always show so any role can view, but canAct controls upload */}
+                {canAct && (
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      leftIcon={<Image className="w-3.5 h-3.5" />}
+                      onClick={() => setUploadMode('evidence_photo')}
+                    >
+                      Evidence Photo
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      leftIcon={<Video className="w-3.5 h-3.5" />}
+                      onClick={() => setUploadMode('evidence_video')}
+                    >
+                      Evidence Video
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      leftIcon={<Image className="w-3.5 h-3.5 text-emerald-500" />}
+                      onClick={() => setUploadMode('resolution_photo')}
+                    >
+                      Resolution Photo
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      leftIcon={<Video className="w-3.5 h-3.5 text-emerald-500" />}
+                      onClick={() => setUploadMode('resolution_video')}
+                    >
+                      Resolution Video
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+                <MediaGallery incidentId={incident.id} refreshSignal={mediaRefresh} />
               </div>
             </CardBody>
           </Card>
@@ -431,21 +638,25 @@ export function IncidentDetailPage() {
         />
       </Modal>
 
-      {/* Media uploader modal */}
-      {showMediaUploader && incident && (
+      {/* Media upload modal */}
+      {uploadMode && incident && (
         <Modal
-          isOpen={showMediaUploader}
-          onClose={() => setShowMediaUploader(false)}
-          title="Upload Evidence Media"
+          isOpen={!!uploadMode}
+          onClose={() => setUploadMode(null)}
+          title={UPLOAD_MODE_CONFIG[uploadMode].label}
           size="md"
         >
           <MediaUploader
             incidentId={incident.id}
-            mediaType={MediaType.INCIDENT_EVIDENCE_PHOTO}
+            mediaType={UPLOAD_MODE_CONFIG[uploadMode].mediaType}
+            accept={UPLOAD_MODE_CONFIG[uploadMode].accept}
             onUpload={(file, mediaType, incidentId) =>
               uploadMediaFull(file, { media_type: mediaType, incident_id: incidentId })
             }
-            onSuccess={() => setShowMediaUploader(false)}
+            onSuccess={() => {
+              setUploadMode(null);
+              setMediaRefresh((n) => n + 1);
+            }}
           />
         </Modal>
       )}

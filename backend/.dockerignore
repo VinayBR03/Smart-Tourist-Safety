@@ -1,0 +1,28 @@
+# Virtual environments — never copy into image
+venv/
+venv_linux/
+.venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Dev/editor
+.env
+.env.*
+!.env.docker
+*.log
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Alembic local state
+alembic/versions/*.pyc

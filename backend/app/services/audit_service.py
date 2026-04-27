@@ -12,6 +12,7 @@ from app.core.enums import AuditAction, EntityType
 from app.core.exceptions import ValidationError
 from app.core.logging_config import get_correlation_id
 from app.utils.logger import get_logger
+from app.services.blockchain_service import log_audit
 
 
 logger = get_logger(__name__)
@@ -86,6 +87,9 @@ def create_audit_log(
     )
 
     db.add(audit)
+
+    tx = log_audit(user_id or 0, action.value, entity_type.value, entity_id or 0)
+    audit.blockchain_tx_hash = tx
 
     logger.debug(
         "Audit log created",

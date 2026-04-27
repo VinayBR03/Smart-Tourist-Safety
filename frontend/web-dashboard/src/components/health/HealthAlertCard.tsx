@@ -35,7 +35,7 @@ export function HealthAlertCard({ alert, onView, className = '' }: HealthAlertCa
             <div className="flex items-center gap-1 mt-0.5">
               <User size={10} className="text-red-400" />
               <span className="text-xs text-red-500 dark:text-red-400">
-                Tourist #{alert.tourist_id}
+                Tourist {alert.tourist_id}
               </span>
             </div>
           </div>

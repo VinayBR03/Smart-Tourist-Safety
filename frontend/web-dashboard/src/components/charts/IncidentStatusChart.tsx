@@ -15,6 +15,17 @@ import { EmptyState } from '../common/EmptyState';
 import type { IncidentStatusResponse } from '../../api/analyticsApi';
 
 // ─────────────────────────────────────────────
+// Normalise backend enum keys
+// Backend may return "IncidentStatus.RESOLVED" or just "RESOLVED"
+// ─────────────────────────────────────────────
+
+function normalizeKey(key: string): string {
+  // Strip "EnumClass." prefix if present
+  const dot = key.lastIndexOf('.');
+  return dot !== -1 ? key.slice(dot + 1) : key;
+}
+
+// ─────────────────────────────────────────────
 // Colour + label maps
 // ─────────────────────────────────────────────
 
@@ -23,9 +34,9 @@ const STATUS_COLORS: Record<string, string> = {
   IN_PROGRESS: '#f97316',
   ESCALATED:   '#dc2626',
   RESOLVED:    '#22c55e',
-  CLOSED:      '#94a3b8',
-  CANCELLED:   '#cbd5e1',
-  REJECTED:    '#e2e8f0',
+  CLOSED:      '#64748b',
+  CANCELLED:   '#94a3b8',
+  REJECTED:    '#6366f1',
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -43,7 +54,7 @@ const STATUS_LABELS: Record<string, string> = {
 // ─────────────────────────────────────────────
 
 interface ChartEntry {
-  name:  string;
+  name:  string;   // normalised key e.g. "RESOLVED"
   value: number;
   fill:  string;
 }
@@ -57,7 +68,7 @@ interface IncidentStatusChartProps {
 }
 
 // ─────────────────────────────────────────────
-// Custom sector shape using modern `shape` + `isActive`
+// Custom active sector
 // ─────────────────────────────────────────────
 
 type SectorProps = PieSectorDataItem & {
@@ -85,11 +96,10 @@ function CustomSector(props: SectorProps) {
   if (isActive) {
     return (
       <g>
-        {/* Centre label */}
         <text
           x={cx} y={(cy as number) - 10}
           textAnchor="middle"
-          style={{ fontSize: 15, fontWeight: 700, fill: 'currentColor' }}
+          style={{ fontSize: 15, fontWeight: 700 }}
           className="fill-slate-900 dark:fill-slate-100"
         >
           {value}
@@ -109,7 +119,6 @@ function CustomSector(props: SectorProps) {
           {(percent * 100).toFixed(1)}%
         </text>
 
-        {/* Expanded outer ring */}
         <Sector
           cx={cx as number}
           cy={cy as number}
@@ -119,7 +128,6 @@ function CustomSector(props: SectorProps) {
           endAngle={endAngle as number}
           fill={fill as string}
         />
-        {/* Inner accent ring */}
         <Sector
           cx={cx as number}
           cy={cy as number}
@@ -158,6 +166,7 @@ interface PieTooltipProps {
 function PieTooltip({ active, payload }: PieTooltipProps) {
   if (!active || !payload || payload.length === 0) return null;
   const item = payload[0];
+  const key  = normalizeKey(item.name);
   return (
     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl px-3 py-2 text-xs">
       <div className="flex items-center gap-2">
@@ -166,7 +175,7 @@ function PieTooltip({ active, payload }: PieTooltipProps) {
           style={{ backgroundColor: item.payload.fill }}
         />
         <span className="text-slate-600 dark:text-slate-400">
-          {STATUS_LABELS[item.name] ?? item.name}
+          {STATUS_LABELS[key] ?? key}
         </span>
         <span className="font-bold text-slate-900 dark:text-slate-100 ml-1">
           {item.value}
@@ -193,13 +202,17 @@ export function IncidentStatusChart({
   if (error)     return <div className="text-sm text-red-500 dark:text-red-400 py-8 text-center">{error}</div>;
   if (!data)     return <EmptyState title="No status data" compact />;
 
+  // Normalise keys — strip enum class prefix if backend returns it
   const chartData: ChartEntry[] = Object.entries(data.status_counts)
     .filter(([, v]) => v > 0)
-    .map(([status, count]) => ({
-      name:  status,
-      value: count,
-      fill:  STATUS_COLORS[status] ?? '#94a3b8',
-    }));
+    .map(([rawStatus, count]) => {
+      const status = normalizeKey(rawStatus);
+      return {
+        name:  status,
+        value: count,
+        fill:  STATUS_COLORS[status] ?? '#94a3b8',
+      };
+    });
 
   if (chartData.length === 0) {
     return <EmptyState title="No incidents" message="No incident status data to display." compact />;
@@ -220,7 +233,6 @@ export function IncidentStatusChart({
             dataKey="value"
             strokeWidth={0}
             onMouseEnter={(_, index) => setActiveIndex(index)}
-            // Modern API: shape receives isActive per-sector
             shape={(props: object) => {
               const p = props as SectorProps;
               return (

@@ -8,6 +8,40 @@ import type {
 } from '../../api/analyticsApi';
 
 // ─────────────────────────────────────────────
+// Normalise backend enum keys
+// Backend may return "DeviceStatus.ACTIVE" or just "ACTIVE"
+// ─────────────────────────────────────────────
+
+function normalizeKey(key: string): string {
+  const dot = key.lastIndexOf('.');
+  return dot !== -1 ? key.slice(dot + 1) : key;
+}
+
+// ─────────────────────────────────────────────
+// Colours — each status gets a distinct colour
+// ─────────────────────────────────────────────
+
+const STATUS_COLORS: Record<string, string> = {
+  ACTIVE:              '#22c55e',  // green
+  INACTIVE:            '#64748b',  // slate
+  MAINTENANCE:         '#f97316',  // orange
+  SUSPENDED:           '#ef4444',  // red
+  DECOMMISSIONED:      '#475569',  // dark slate
+  LOST:                '#dc2626',  // dark red
+  SYSTEM_MAINTENANCE:  '#a855f7',  // purple
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  ACTIVE:              'Active',
+  INACTIVE:            'Inactive',
+  MAINTENANCE:         'Maintenance',
+  SUSPENDED:           'Suspended',
+  DECOMMISSIONED:      'Decommissioned',
+  LOST:                'Lost',
+  SYSTEM_MAINTENANCE:  'System Maintenance',
+};
+
+// ─────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────
 
@@ -19,28 +53,6 @@ interface DeviceHealthChartProps {
   height?:      number;
   className?:   string;
 }
-
-// ─────────────────────────────────────────────
-// Colours
-// ─────────────────────────────────────────────
-
-const STATUS_COLORS: Record<string, string> = {
-  ACTIVE:         '#22c55e',
-  INACTIVE:       '#94a3b8',
-  MAINTENANCE:    '#f97316',
-  SUSPENDED:      '#ef4444',
-  DECOMMISSIONED: '#64748b',
-  LOST:           '#dc2626',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  ACTIVE:         'Active',
-  INACTIVE:       'Inactive',
-  MAINTENANCE:    'Maintenance',
-  SUSPENDED:      'Suspended',
-  DECOMMISSIONED: 'Decommissioned',
-  LOST:           'Lost',
-};
 
 // ─────────────────────────────────────────────
 // Custom SVG donut
@@ -58,26 +70,31 @@ function DonutChart({ data, total, size = 140 }: DonutProps) {
   const radius = size * 0.38;
   const stroke = size * 0.14;
 
-  let cumulativeAngle = -90;
-
-  const segments = data
+  // Use reduce so cumulative angle accumulates without mutating a variable
+  // inside .map(), which triggers the react-hooks/immutability lint rule.
+  const { segments } = data
     .filter((d) => d.value > 0)
-    .map((d) => {
-      const angle    = (d.value / total) * 360;
-      const startRad = (cumulativeAngle * Math.PI) / 180;
-      const endRad   = ((cumulativeAngle + angle) * Math.PI) / 180;
+    .reduce<{ segments: Array<typeof data[0] & { path: string }>; cumAngle: number }>(
+      ({ segments, cumAngle }, d) => {
+        const angle    = (d.value / total) * 360;
+        const startRad = (cumAngle * Math.PI) / 180;
+        const endRad   = ((cumAngle + angle) * Math.PI) / 180;
 
-      const x1 = cx + radius * Math.cos(startRad);
-      const y1 = cy + radius * Math.sin(startRad);
-      const x2 = cx + radius * Math.cos(endRad);
-      const y2 = cy + radius * Math.sin(endRad);
+        const x1 = cx + radius * Math.cos(startRad);
+        const y1 = cy + radius * Math.sin(startRad);
+        const x2 = cx + radius * Math.cos(endRad);
+        const y2 = cy + radius * Math.sin(endRad);
 
-      const largeArc = angle > 180 ? 1 : 0;
-      const path = `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`;
+        const largeArc = angle > 180 ? 1 : 0;
+        const path = `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`;
 
-      cumulativeAngle += angle;
-      return { ...d, path };
-    });
+        return {
+          segments: [...segments, { ...d, path }],
+          cumAngle:  cumAngle + angle,
+        };
+      },
+      { segments: [], cumAngle: -90 }
+    );
 
   return (
     <svg width={size} height={size} className="flex-shrink-0">
@@ -119,10 +136,8 @@ function DonutChart({ data, total, size = 140 }: DonutProps) {
 
 // ─────────────────────────────────────────────
 // Battery stacked bar
-// BatteryDistributionPoint = { range: string; count: number }
 // ─────────────────────────────────────────────
 
-// Map known range labels to colours (best-effort)
 function rangeToColor(range: string): string {
   const r = range.toUpperCase();
   if (r.includes('CRITICAL') || r === '0-20')   return '#ef4444';
@@ -136,7 +151,6 @@ interface BatteryBarProps {
 }
 
 function BatteryBar({ data }: BatteryBarProps) {
-  // data.data is BatteryDistributionPoint[] = { range: string; count: number }[]
   const points = data.data.filter((p) => p.count > 0);
   const total  = points.reduce((s, p) => s + p.count, 0);
 
@@ -188,14 +202,17 @@ export function DeviceHealthChart({
   if (error)     return <div className="text-sm text-red-500 dark:text-red-400 py-8 text-center">{error}</div>;
   if (!healthData) return <EmptyState title="No device data" compact />;
 
-  // healthData.status_counts is the correct field per analyticsApi.ts → DeviceHealthResponse
+  // Normalise keys — strip enum class prefix if backend returns it
   const segments = Object.entries(healthData.status_counts)
     .filter(([, v]) => v > 0)
-    .map(([status, value]) => ({
-      label: STATUS_LABELS[status] ?? status,
-      value,
-      color: STATUS_COLORS[status] ?? '#94a3b8',
-    }));
+    .map(([rawStatus, value]) => {
+      const status = normalizeKey(rawStatus);
+      return {
+        label: STATUS_LABELS[status] ?? status,
+        value,
+        color: STATUS_COLORS[status] ?? '#94a3b8',
+      };
+    });
 
   const total = segments.reduce((s, d) => s + d.value, 0);
 

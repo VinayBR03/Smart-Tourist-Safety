@@ -39,7 +39,7 @@ def run_migrations_offline():
         url=settings.DATABASE_URL,
         target_metadata=target_metadata,
         literal_binds=True,
-        compare_type=True,
+        compare_type=False,
         compare_server_default=True,
     )
 
@@ -58,7 +58,7 @@ def run_migrations_online():
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            compare_type=True,
+            compare_type=False,
             compare_server_default=True,
             transactional_ddl=True,
         )

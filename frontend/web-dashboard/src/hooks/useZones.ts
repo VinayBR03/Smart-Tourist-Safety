@@ -7,7 +7,7 @@ import {
 } from 'react';
 
 import {
-  listZones,
+  listZonesWithStatus,
   getZone,
   getZoneStatus,
   getZoneRiskHistory,
@@ -29,11 +29,11 @@ import type {
 import type { ApiError } from '../api/apiClient';
 
 // ─────────────────────────────────────────────
-// List all zones
+// List all zones (with risk status)
 // ─────────────────────────────────────────────
 
 export function useZones() {
-  const [zones,     setZones]     = useState<Zone[]>([]);
+  const [zones,     setZones]     = useState<ZoneWithStatus[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error,     setError]     = useState<string | null>(null);
 
@@ -41,7 +41,7 @@ export function useZones() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await listZones();
+      const data = await listZonesWithStatus();
       setZones(data);
     } catch (err) {
       setError((err as ApiError).message ?? 'Failed to load zones');

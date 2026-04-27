@@ -294,7 +294,7 @@ export function DashboardPage() {
               <IncidentStatusChart
                 data={status}
                 isLoading={analyticsLoading}
-                height={180}
+                height={200}
               />
             </CardBody>
           </Card>

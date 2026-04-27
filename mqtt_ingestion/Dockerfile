@@ -1,6 +1,8 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.22-bookworm AS builder
 
-RUN apk add --no-cache git ca-certificates tzdata
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ca-certificates tzdata \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 
@@ -8,15 +10,17 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY main.go ./
+
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -ldflags="-w -s" -o sentineltour-mqtt-ingestion .
 
-FROM scratch
+# ─────────────────────────────────────────
+FROM debian:bookworm-slim
 
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates tzdata \
+    && rm -rf /var/lib/apt/lists/*
 
-# Binary name matches what was built above
 COPY --from=builder /build/sentineltour-mqtt-ingestion /sentineltour-mqtt-ingestion
 
 ENTRYPOINT ["/sentineltour-mqtt-ingestion"]

@@ -7,6 +7,7 @@ from sqlalchemy import (
     DateTime,
     Index,
     CheckConstraint,
+    String,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -80,6 +81,11 @@ class IncidentAssignment(Base, TimestampMixin, VersionMixin):
         DateTime(timezone=True),
         nullable=True,
         index=True,
+    )
+
+    blockchain_tx_hash: Mapped[str | None] = mapped_column(
+        String(66),
+        nullable=True,
     )
 
     # =========================================================

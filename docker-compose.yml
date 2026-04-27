@@ -2,6 +2,15 @@
 # Sentinel Tour — Docker Compose
 # =================================================================
 
+networks:
+  app_net:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: app_net
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
 services:
 
   # ═══════════════════════════════════════════
@@ -19,6 +28,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app_net
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U tourist_user -d tourist_safety_db"]
@@ -35,6 +46,8 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - app_net
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -50,6 +63,8 @@ services:
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - mosquitto_data:/mosquitto/data
+    networks:
+      - app_net
     restart: unless-stopped
 
   zookeeper:
@@ -60,14 +75,22 @@ services:
       ZOOKEEPER_TICK_TIME:   2000
     volumes:
       - zookeeper_data:/var/lib/zookeeper/data
+    networks:
+      - app_net
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   kafka:
     image: confluentinc/cp-kafka:7.6.0
     container_name: tourist_kafka
     depends_on:
       zookeeper:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "9092:9092"
     environment:
@@ -84,7 +107,15 @@ services:
       KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS:  6000
     volumes:
       - kafka_data:/var/lib/kafka/data
+    networks:
+      - app_net
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   # ═══════════════════════════════════════════
   # Application Services
@@ -94,6 +125,7 @@ services:
     build:
       context: ./ai_engine
       dockerfile: Dockerfile
+      network: host
     container_name: tourist_ai_engine
     env_file:
       - ./ai_engine/.env.docker
@@ -101,6 +133,11 @@ services:
       - "8001:8001"
     volumes:
       - ./ai_engine/artifacts:/app/artifacts
+    networks:
+      - app_net
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
@@ -113,6 +150,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      network: host
     container_name: tourist_backend
     depends_on:
       postgres:
@@ -120,7 +158,7 @@ services:
       redis:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
       ai-engine:
         condition: service_started
     env_file:
@@ -128,7 +166,12 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/app/secrets/sentinel-tour-firebase-adminsdk-fbsvc-c87847b6c7.json:/app/secrets/firebase-service-account.json:ro
+      - ./backend/app/secrets/sentinel-tour-firebase-adminsdk-fbsvc-c87847b6c7.json:/app/app/secrets/firebase-service-account.json:ro
+    networks:
+      - app_net
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -141,6 +184,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      network: host
     container_name: tourist_celery
     command: >
       celery -A app.core.celery_app.celery_app worker
@@ -153,21 +197,29 @@ services:
       redis:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
     env_file:
       - ./backend/.env.docker
+    volumes:
+      - ./backend/app/secrets/sentinel-tour-firebase-adminsdk-fbsvc-c87847b6c7.json:/app/app/secrets/firebase-service-account.json:ro
+    networks:
+      - app_net
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "celery -A app.core.celery_app.celery_app inspect ping --timeout 5"]
+      test: ["CMD-SHELL", "celery -A app.core.celery_app.celery_app status 2>/dev/null | grep -q 'OK' || exit 1"]
       interval: 30s
       timeout: 15s
-      start_period: 15s
+      start_period: 20s
       retries: 3
 
   celery-beat:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      network: host
     container_name: tourist_celery_beat
     command: >
       celery -A app.core.celery_app.celery_app beat
@@ -180,9 +232,16 @@ services:
       redis:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
     env_file:
       - ./backend/.env.docker
+    volumes:
+      - ./backend/app/secrets/sentinel-tour-firebase-adminsdk-fbsvc-c87847b6c7.json:/app/app/secrets/firebase-service-account.json:ro
+    networks:
+      - app_net
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     restart: unless-stopped
     healthcheck:
       disable: true
@@ -191,17 +250,23 @@ services:
     build:
       context: ./mqtt_ingestion
       dockerfile: Dockerfile
+      network: host
     container_name: tourist_mqtt_ingestion
     depends_on:
       mosquitto:
         condition: service_started
       kafka:
-        condition: service_started
+        condition: service_healthy
     environment:
       MQTT_BROKER:       tcp://mosquitto:1883
       MQTT_TOPIC_PREFIX: crowdguard
       KAFKA_BROKERS:     kafka:29092
       KAFKA_TOPIC:       iot.telemetry
+    networks:
+      - app_net
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     restart: unless-stopped
 
   # ═══════════════════════════════════════════
@@ -212,12 +277,18 @@ services:
     build:
       context: ./frontend/web-dashboard
       dockerfile: Dockerfile
+      network: host
     container_name: tourist_web_dashboard
     depends_on:
       backend:
         condition: service_healthy
     ports:
       - "3000:3000"
+    networks:
+      - app_net
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     restart: unless-stopped
     volumes:
       - ./frontend/web-dashboard/public/config.js:/usr/share/nginx/html/config.js

@@ -9,6 +9,14 @@ export interface Zone {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+
+  // ── Geometry (present in API responses for map rendering) ──
+  // Circular zone fields
+  center_latitude?:  number;
+  center_longitude?: number;
+  radius_meters?:    number;
+  // Polygon zone fields
+  coordinates?:      [number, number][];  // [lng, lat] pairs
 }
 
 export interface ZoneStatus {

@@ -4,6 +4,7 @@ import {
   FlatList, RefreshControl, ActivityIndicator,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import Animated, { FadeInDown, FadeOutLeft, Layout } from 'react-native-reanimated';
 import { Header } from '@/components/layout/Header';
 import { Badge, severityVariant } from '@/components/ui/Badge';
@@ -38,7 +39,7 @@ function groupByDate(items: NotificationSummary[]) {
   return groups;
 }
 
-function NotificationRow({ item, onMarkRead }: { item: NotificationSummary; onMarkRead: (id: number) => void }) {
+function NotificationRow({ item, onPress }: { item: NotificationSummary; onPress: (item: NotificationSummary) => void }) {
   const C = useColors();
   const isUnread = item.status !== 'READ';
   return (
@@ -49,7 +50,7 @@ function NotificationRow({ item, onMarkRead }: { item: NotificationSummary; onMa
           { backgroundColor: C.surface, borderColor: C.border },
           isUnread && { backgroundColor: 'rgba(59,130,246,0.04)', borderColor: 'rgba(59,130,246,0.2)' },
         ]}
-        onPress={() => isUnread && onMarkRead(item.id)}
+        onPress={() => onPress(item)}
         activeOpacity={0.8}
       >
         <View style={[styles.notifIconWrap, { backgroundColor: `${isUnread ? C.primary : C.textMuted}14` }]}>
@@ -130,6 +131,15 @@ export default function NotificationsScreen() {
   const groups      = groupByDate(filtered);
   const unreadCount = notifications.filter((n) => n.status !== 'READ').length;
 
+  const handleNotificationPress = (item: NotificationSummary) => {
+    // Always mark as read on tap
+    if (item.status !== 'READ') markReadMutation.mutate(item.id);
+    // Navigate to incident detail if linked
+    if (item.related_entity_type === 'INCIDENT' && item.related_entity_id) {
+      router.push({ pathname: '/incidents/[id]', params: { id: item.related_entity_id } });
+    }
+  };
+
   const flatData: ({ type: 'header'; title: string } | { type: 'item'; data: NotificationSummary })[] = [];
   groups.forEach((g) => {
     flatData.push({ type: 'header', title: g.title });
@@ -180,7 +190,7 @@ export default function NotificationsScreen() {
                 </View>
               );
             }
-            return <NotificationRow item={item.data} onMarkRead={(id) => markReadMutation.mutate(id)} />;
+            return <NotificationRow item={item.data} onPress={handleNotificationPress} />;
           }}
         />
       )}

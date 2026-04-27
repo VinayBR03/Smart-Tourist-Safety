@@ -23,6 +23,7 @@ from app.schemas.incident_status_history_schema import (
     IncidentTimelineResponse,
 )
 
+from app.services.notification_service import publish_after_commit
 from app.core.exceptions import (
     NotFoundError,
     ValidationError,
@@ -77,6 +78,7 @@ def create_new_incident(
             is_auto_generated=payload.is_auto_generated,
         )
         db.commit()
+        publish_after_commit(db)
         db.refresh(incident)
         return incident
 
@@ -224,6 +226,7 @@ def change_incident_status(
             performed_by=current_user.id,
         )
         db.commit()
+        publish_after_commit(db)
         db.refresh(incident)
         return incident
 
@@ -278,6 +281,7 @@ def resolve_existing_incident(
         )
 
         db.commit()
+        publish_after_commit(db)
         db.refresh(incident)
         return incident
 

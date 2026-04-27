@@ -127,6 +127,13 @@ class NotificationResponse(BaseModel):
     template_version: str
     language: UserLanguage
 
+    @field_validator("language", mode="before")
+    @classmethod
+    def normalise_language(cls, v):
+        if isinstance(v, str):
+            return v.upper()
+        return v
+
     retry_count: int
     next_retry_at: Optional[datetime]
     sent_at: Optional[datetime]
@@ -200,6 +207,38 @@ class NotificationSummaryResponse(BaseModel):
     severity: NotificationSeverity
     status: NotificationStatus
     created_at: datetime
+    title: str = ""
+    body: str = ""
+    related_entity_type: Optional[str] = None
+    related_entity_id: Optional[int] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def extract_payload_fields(cls, values):
+        # Works for both ORM objects and dicts
+        if hasattr(values, "__dict__"):
+            payload = getattr(values, "payload", {}) or {}
+        else:
+            payload = values.get("payload", {}) or {}
+
+        if isinstance(payload, dict):
+            title = payload.get("push_title") or payload.get("title") or ""
+            body  = payload.get("push_body")  or payload.get("in_app_message") or payload.get("body") or ""
+
+            if hasattr(values, "__dict__"):
+                # ORM object — convert to dict for Pydantic
+                d = {c: getattr(values, c, None) for c in [
+                    "id", "event_type", "severity", "status", "created_at",
+                    "related_entity_type", "related_entity_id",
+                ]}
+                d["title"] = title
+                d["body"]  = body
+                return d
+            else:
+                values.setdefault("title", title)
+                values.setdefault("body",  body)
+
+        return values
 
     model_config = ConfigDict(
         from_attributes=True,

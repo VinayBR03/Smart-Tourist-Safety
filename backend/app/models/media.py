@@ -102,6 +102,11 @@ class Media(Base, TimestampMixin, VersionMixin, SoftDeleteMixin):
         index=True,
     )
 
+    blockchain_tx_hash: Mapped[str | None] = mapped_column(
+        String(66),
+        nullable=True,
+    )
+
     # =========================================================
     # Constraints & Indexes
     # =========================================================

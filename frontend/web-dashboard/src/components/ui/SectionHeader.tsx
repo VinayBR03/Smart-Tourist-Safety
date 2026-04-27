@@ -50,16 +50,11 @@ const SUBTITLE_SIZE: Record<SectionSize, string> = {
   lg: 'text-sm',
 };
 
+// Outer coloured box size
 const ICON_WRAP: Record<SectionSize, string> = {
   sm: 'w-7 h-7',
   md: 'w-9 h-9',
   lg: 'w-10 h-10',
-};
-
-const ICON_INNER: Record<SectionSize, string> = {
-  sm: 'w-3.5 h-3.5',
-  md: 'w-4 h-4',
-  lg: 'w-5 h-5',
 };
 
 // ─────────────────────────────────────────────
@@ -94,11 +89,15 @@ export function SectionHeader({
               'flex-shrink-0 rounded-xl',
               'bg-blue-50 dark:bg-blue-900/30',
               'text-blue-600 dark:text-blue-400',
+              // flex centres whatever SVG is placed inside regardless of its own size
               'flex items-center justify-center',
               ICON_WRAP[size],
             ].join(' ')}
           >
-            <span className={ICON_INNER[size]}>{icon}</span>
+            {/* Constrain + centre the icon; [&>svg] targets the SVG child directly */}
+            <span className="flex items-center justify-center w-full h-full [&>svg]:w-4 [&>svg]:h-4">
+              {icon}
+            </span>
           </div>
         )}
 
@@ -200,7 +199,7 @@ export function PageHeader({
         <div className="flex items-center gap-3 min-w-0">
           {icon && (
             <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-              <span className="w-5 h-5 flex items-center justify-center">
+              <span className="flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">
                 {icon}
               </span>
             </div>

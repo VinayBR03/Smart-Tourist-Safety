@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import logo from '../../assets/logos/SentinelTour-logo.svg';
+import { UserRole } from '../../types/enums';
 
 // ─────────────────────────────────────────────
 // Types
@@ -22,13 +23,13 @@ interface LoginFormState {
 // ─────────────────────────────────────────────
 
 export function LoginPage() {
-  const navigate                  = useNavigate();
-  const location                  = useLocation();
-  const { login, isLoading }      = useAuth();
-  const [form, setForm]           = useState<LoginFormState>({ email: '', password: '' });
-  const [error, setError]         = useState<string | null>(null);
+  const navigate             = useNavigate();
+  const location             = useLocation();
+  const { login, logout, isLoading } = useAuth();
+  const [form, setForm]      = useState<LoginFormState>({ email: '', password: '' });
+  const [error, setError]    = useState<string | null>(null);
 
-  const from = (location.state as { from?: string })?.from ?? '/';
+  const from = (location.state as { from?: string })?.from ?? '/dashboard';
 
   const handleChange = useCallback(
     (field: keyof LoginFormState) =>
@@ -49,6 +50,27 @@ export function LoginPage() {
 
       try {
         await login({ email: form.email.trim(), password: form.password });
+
+        // After login, check if the logged-in user is a tourist.
+        // Tourist accounts are not permitted to access this dashboard.
+        const userRaw = localStorage.getItem('sentinel_user');
+        if (userRaw) {
+          try {
+            const user = JSON.parse(userRaw);
+            if (user?.role === UserRole.TOURIST) {
+              // Immediately log out and show a clear error
+              await logout();
+              setError(
+                'Tourist accounts cannot access the Operations Dashboard. ' +
+                'Please use the SentinelTour mobile app instead.'
+              );
+              return;
+            }
+          } catch {
+            // Parsing failed — let normal auth flow proceed
+          }
+        }
+
         navigate(from, { replace: true });
       } catch (err: unknown) {
         const msg =
@@ -58,7 +80,7 @@ export function LoginPage() {
         setError(msg);
       }
     },
-    [form, login, navigate, from]
+    [form, login, logout, navigate, from]
   );
 
   return (
@@ -67,11 +89,11 @@ export function LoginPage() {
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl p-8">
         {/* Logo + heading */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center">
-            <img 
+          <div className="inline-flex items-center justify-center mb-3">
+            <img
               src={logo}
               className="w-14 h-14"
-              alt="Sentinel Tour Logo" 
+              alt="Sentinel Tour Logo"
             />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
@@ -127,9 +149,15 @@ export function LoginPage() {
         </form>
 
         {/* Footer note */}
-        <p className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">
-          Authorised personnel only. All activity is monitored and logged.
-        </p>
+        <div className="mt-6 text-center space-y-1">
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            Authorised personnel only. All activity is monitored and logged.
+          </p>
+          <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Admin &amp; Authority access only</span>
+          </div>
+        </div>
       </div>
 
       {/* Brand footer */}

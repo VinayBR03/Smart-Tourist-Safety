@@ -3,26 +3,27 @@
 import { apiClient } from './apiClient';
 
 // ─────────────────────────────────────────────
-// Response types (aligned with backend analytics_schema.py)
+// Response types
 // ─────────────────────────────────────────────
 
 export interface IncidentTrendPoint {
-  date: string;
+  date:  string; // guaranteed "YYYY-MM-DD" from backend to_char()
   count: number;
 }
 
+// Frontend canonical shape — always { data: [...] } after normalisation below.
 export interface IncidentTrendResponse {
   data: IncidentTrendPoint[];
 }
 
 export interface IncidentStatusCounts {
-  OPEN: number;
+  OPEN:        number;
   IN_PROGRESS: number;
-  ESCALATED: number;
-  RESOLVED: number;
-  CLOSED: number;
-  CANCELLED: number;
-  REJECTED: number;
+  ESCALATED:   number;
+  RESOLVED:    number;
+  CLOSED:      number;
+  CANCELLED:   number;
+  REJECTED:    number;
 }
 
 export interface IncidentStatusResponse {
@@ -30,9 +31,9 @@ export interface IncidentStatusResponse {
 }
 
 export interface ZoneRiskCounts {
-  LOW: number;
+  LOW:    number;
   MEDIUM: number;
-  HIGH: number;
+  HIGH:   number;
 }
 
 export interface ZoneRiskResponse {
@@ -40,12 +41,12 @@ export interface ZoneRiskResponse {
 }
 
 export interface DeviceStatusCounts {
-  ACTIVE: number;
-  INACTIVE: number;
-  MAINTENANCE: number;
-  SUSPENDED: number;
+  ACTIVE:         number;
+  INACTIVE:       number;
+  MAINTENANCE:    number;
+  SUSPENDED:      number;
   DECOMMISSIONED: number;
-  LOST: number;
+  LOST:           number;
 }
 
 export interface DeviceHealthResponse {
@@ -63,10 +64,32 @@ export interface DeviceBatteryDistributionResponse {
 
 // ─────────────────────────────────────────────
 // GET /analytics/incidents/trend
+//
+// The backend returns a PLAIN ARRAY:
+//   [{"date": "YYYY-MM-DD", "count": N}, ...]
+// (see analytics_service.py → get_incident_trend which returns a list directly).
+//
+// We normalise it here into { data: [...] } so the chart and the rest
+// of the app always work with a consistent shape.
 // ─────────────────────────────────────────────
 
 export async function getIncidentTrend(): Promise<IncidentTrendResponse> {
-  return apiClient.get<IncidentTrendResponse>('/analytics/incidents/trend');
+  const raw = await apiClient.get<IncidentTrendPoint[] | IncidentTrendResponse>(
+    '/analytics/incidents/trend'
+  );
+
+  // Backend returns a plain array → wrap it
+  if (Array.isArray(raw)) {
+    return { data: raw };
+  }
+
+  // Already wrapped (future-proofing if backend changes)
+  if (raw && typeof raw === 'object' && Array.isArray((raw as IncidentTrendResponse).data)) {
+    return raw as IncidentTrendResponse;
+  }
+
+  // Unexpected shape — return empty so chart shows "no data" gracefully
+  return { data: [] };
 }
 
 // ─────────────────────────────────────────────

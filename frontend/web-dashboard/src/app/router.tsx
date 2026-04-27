@@ -1,7 +1,9 @@
-// c:\Users\Vinay B R\Desktop\Smart Tourist Safety System\frontend\web-dashboard\src\app\router.tsx
+// src/app/router.tsx
 
-import React from 'react';
-import { createBrowserRouter, Navigate, useLocation } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
+
+// Guards (in their own file so react-refresh works correctly)
+import { AuthGuard, PublicGuard } from './guards';
 
 // Layouts
 import { DashboardLayout } from '../components/layout/DashboardLayout';
@@ -29,62 +31,7 @@ import { SystemAnalyticsPage } from '../pages/admin/SystemAnalyticsPage';
 // Settings Pages
 import { SettingsPage } from '../pages/settings/SettingsPage';
 
-// Components & Hooks
-import { Loader }   from '../components/common/Loader';
-import { useAuth }  from '../hooks/useAuth';
 import { UserRole } from '../types/enums';
-
-/* =========================================================
-   GUARDS
-   ========================================================= */
-
-/**
- * Protects routes that require authentication.
- * Optionally checks for specific roles.
- */
-function AuthGuard({ 
-  children, 
-  roles 
-}: { 
-  children: React.ReactNode; 
-  roles?: UserRole[] 
-}) {
-  const { user, isLoading } = useAuth();
-  const location = useLocation();
-
-  if (isLoading) {
-    return <Loader fullPage label="Verifying session..." />;
-  }
-
-  if (!user) {
-    // Redirect to login, remembering the location they tried to access
-    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
-  }
-
-  if (roles && !roles.includes(user.role)) {
-    // User is logged in but doesn't have permission
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return <>{children}</>;
-}
-
-/**
- * Redirects authenticated users away from public-only routes (like login).
- */
-function PublicGuard({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return <Loader fullPage />;
-  }
-
-  if (user) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return <>{children}</>;
-}
 
 /* =========================================================
    ROUTER CONFIG
@@ -116,46 +63,16 @@ export const router = createBrowserRouter([
         index: true,
         element: <Navigate to="/dashboard" replace />,
       },
-      {
-        path: 'dashboard',
-        element: <DashboardPage />,
-      },
-      {
-        path: 'map',
-        element: <OperationsMapPage />,
-      },
-      {
-        path: 'zones',
-        element: <ZonesPage />,
-      },
-      {
-        path: 'incidents',
-        element: <IncidentListPage />,
-      },
-      {
-        path: 'incidents/:incidentId',
-        element: <IncidentDetailPage />,
-      },
-      {
-        path: 'devices',
-        element: <DevicesPage />,
-      },
-      {
-        path: 'health',
-        element: <HealthMonitoringPage />,
-      },
-      {
-        path: 'notifications',
-        element: <NotificationsPage />,
-      },
-      {
-        path: 'settings',
-        element: <SettingsPage />,
-      },
-      {
-        path: 'analytics',
-        element: <OperationsAnalyticsPage />,
-      },
+      { path: 'dashboard',  element: <DashboardPage /> },
+      { path: 'map',        element: <OperationsMapPage /> },
+      { path: 'zones',      element: <ZonesPage /> },
+      { path: 'incidents',  element: <IncidentListPage /> },
+      { path: 'incidents/:incidentId', element: <IncidentDetailPage /> },
+      { path: 'devices',    element: <DevicesPage /> },
+      { path: 'health',     element: <HealthMonitoringPage /> },
+      { path: 'notifications', element: <NotificationsPage /> },
+      { path: 'settings',   element: <SettingsPage /> },
+      { path: 'analytics',  element: <OperationsAnalyticsPage /> },
 
       // ── Admin Only ──
       {
@@ -186,8 +103,5 @@ export const router = createBrowserRouter([
   },
 
   // ── Fallback ───────────────────────────────────────────
-  {
-    path: '*',
-    element: <Navigate to="/dashboard" replace />,
-  },
+  { path: '*', element: <Navigate to="/dashboard" replace /> },
 ]);

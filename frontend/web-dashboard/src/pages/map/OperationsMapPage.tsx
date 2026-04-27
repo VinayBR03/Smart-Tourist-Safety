@@ -28,6 +28,8 @@ import { Button }                             from '../../components/common/Butt
 import { IncidentStatusBadge }               from '../../components/common/Badge';
 import { LeafletMap }                         from '../../components/maps/LeafletMap';
 import { TouristMarkerLayer }                 from '../../components/maps/TouristMarkerLayer';
+import { ZoneOverlay }                        from '../../components/maps/ZoneOverlay';
+import type { ZoneGeometry }                  from '../../components/maps/ZoneOverlay';
 import { MapLegend }                          from '../../components/ui/MapLegend';
 import { EmptyState }                         from '../../components/common/EmptyState';
 
@@ -36,6 +38,34 @@ import type { ZoneWithStatus }                from '../../types/zone';
 import type { LocationResponse }              from '../../types/location';
 import { formatTimeAgo }                      from '../../utils/formatDate';
 import { useMapCenter }                       from '../../hooks/useMapCenter';
+
+// ─────────────────────────────────────────────
+// Helpers: extract geometry from zone data
+// ─────────────────────────────────────────────
+
+function getZoneGeometry(zone: ZoneWithStatus): ZoneGeometry | null {
+  // Circular zone
+  if (
+    zone.center_latitude  != null &&
+    zone.center_longitude != null &&
+    zone.radius_meters    != null
+  ) {
+    return {
+      type:             'circular',
+      center_latitude:  zone.center_latitude,
+      center_longitude: zone.center_longitude,
+      radius_meters:    zone.radius_meters,
+    };
+  }
+  // Polygon zone
+  if (zone.coordinates && zone.coordinates.length >= 3) {
+    return {
+      type:        'polygon',
+      coordinates: zone.coordinates,
+    };
+  }
+  return null;
+}
 
 // ─────────────────────────────────────────────
 // Selected tourist info panel
@@ -58,7 +88,7 @@ function TouristInfoPanel({
                 {loc.tourist_id % 100}
               </div>
               <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                Tourist #{loc.tourist_id}
+                Tourist {loc.tourist_id}
               </h3>
             </div>
             <button
@@ -119,13 +149,13 @@ function TouristInfoPanel({
 }
 
 // ─────────────────────────────────────────────
-// Device type icon (text-based, no SVG import needed)
+// Device type icon
 // ─────────────────────────────────────────────
 
 function deviceTypeLabel(type: DeviceType): string {
   switch (type) {
-    case DeviceType.NODE:     return '📡 Node';
-    case DeviceType.GATEWAY:  return '🔗 Gateway';
+    case DeviceType.NODE:      return '📡 Node';
+    case DeviceType.GATEWAY:   return '🔗 Gateway';
     case DeviceType.WRISTBAND: return '⌚ Wristband';
     default: return type;
   }
@@ -146,6 +176,7 @@ export function OperationsMapPage() {
   const { center, zoom, isLocating, source, persist } = useMapCenter();
 
   const [showTourists,  setShowTourists]  = useState(true);
+  const [showZones,     setShowZones]     = useState(true);
   const [showIncidents, setShowIncidents] = useState(true);
   const [selectedLoc,   setSelectedLoc]   = useState<LocationResponse | null>(null);
   const [isFullscreen,  setIsFullscreen]  = useState(false);
@@ -153,7 +184,7 @@ export function OperationsMapPage() {
 
   const allZones = useMemo(() => zones as ZoneWithStatus[], [zones]);
 
-  // ── Active incidents (OPEN + IN_PROGRESS + ESCALATED) ──
+  // ── Active incidents ──
   const activeIncidents = useMemo(
     () =>
       incidents.filter((i) =>
@@ -164,7 +195,7 @@ export function OperationsMapPage() {
     [incidents]
   );
 
-  // ── Infrastructure devices (NODE + GATEWAY only, exclude wristbands) ──
+  // ── Infrastructure devices ──
   const infraDevices = useMemo(
     () =>
       devices.filter(
@@ -188,7 +219,7 @@ export function OperationsMapPage() {
     {
       title: 'Tourists',
       items: [
-        { color: '#3b82f6', label: 'Active',       shape: 'circle' as const },
+        { color: '#3b82f6', label: 'Active',         shape: 'circle' as const },
         { color: '#94a3b8', label: 'Stale (>5 min)', shape: 'circle' as const, opacity: 0.4 },
       ],
     },
@@ -203,8 +234,8 @@ export function OperationsMapPage() {
     {
       title: 'Incidents',
       items: [
-        { color: '#f59e0b', label: 'Open',       shape: 'circle' as const },
-        { color: '#ef4444', label: 'Escalated',  shape: 'circle' as const },
+        { color: '#f59e0b', label: 'Open',        shape: 'circle' as const },
+        { color: '#ef4444', label: 'Escalated',   shape: 'circle' as const },
         { color: '#3b82f6', label: 'In Progress', shape: 'circle' as const },
       ],
     },
@@ -226,8 +257,7 @@ export function OperationsMapPage() {
     return () => { document.body.style.overflow = ''; };
   }, [isFullscreen]);
 
-  const handleRefresh = useCallback(() => { refetchLoc(); }, [refetchLoc]);
-
+  const handleRefresh    = useCallback(() => { refetchLoc(); }, [refetchLoc]);
   const handleMarkerClick = useCallback((loc: LocationResponse) => {
     setSelectedLoc((prev) => (prev?.tourist_id === loc.tourist_id ? null : loc));
   }, []);
@@ -235,10 +265,10 @@ export function OperationsMapPage() {
   // ── Map height ──
   const mapHeight = isFullscreen ? 'calc(100vh - 96px)' : 520;
 
-  // ── Map panel (shared between normal and fullscreen) ──
+  // ── Map panel ──
   const mapPanel = (
     <div className="relative">
-      {/* Map controls */}
+      {/* Controls */}
       <div className="flex items-center gap-2 mb-2 px-1 flex-wrap">
         <div className="flex items-center gap-2">
           <SectionHeader title="Live Map" size="sm" />
@@ -260,6 +290,14 @@ export function OperationsMapPage() {
             onClick={() => setShowTourists((v) => !v)}
           >
             Tourists
+          </Button>
+          <Button
+            variant={showZones ? 'primary' : 'outline'}
+            size="xs"
+            leftIcon={<MapPin className="w-3.5 h-3.5" />}
+            onClick={() => setShowZones((v) => !v)}
+          >
+            Zones
           </Button>
           <Button
             variant={showIncidents ? 'primary' : 'outline'}
@@ -286,6 +324,23 @@ export function OperationsMapPage() {
 
       <div className="relative">
         <LeafletMap height={mapHeight} center={center} zoom={zoom} onMoveEnd={persist}>
+
+          {/* Zone overlays — rendered like mobile app */}
+          {showZones && allZones
+            .filter((z) => z.is_active)
+            .map((zone) => {
+              const geom = getZoneGeometry(zone);
+              if (!geom) return null;
+              return (
+                <ZoneOverlay
+                  key={zone.id}
+                  zone={zone}
+                  geometry={geom}
+                />
+              );
+            })}
+
+          {/* Tourist markers */}
           {showTourists && (
             <TouristMarkerLayer
               locations={activeLocations}
@@ -382,7 +437,6 @@ export function OperationsMapPage() {
           ref={fullscreenRef}
           className="fixed inset-0 z-[9999] bg-white dark:bg-slate-900 flex flex-col"
         >
-          {/* Fullscreen header */}
           <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
             <div className="flex items-center gap-3">
               <Map className="w-4 h-4 text-blue-500" />
@@ -396,7 +450,6 @@ export function OperationsMapPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {/* Stats row in fullscreen */}
               <div className="hidden md:flex items-center gap-4 mr-4 text-xs text-slate-500">
                 <span>
                   <span className="font-semibold text-blue-600">{stats.tourists}</span> tourists
@@ -432,7 +485,6 @@ export function OperationsMapPage() {
             </div>
           </div>
 
-          {/* Fullscreen map body */}
           <div className="flex-1 p-2 overflow-hidden">
             {mapPanel}
           </div>
@@ -531,7 +583,7 @@ export function OperationsMapPage() {
                         <div key={inc.id} className="flex items-start justify-between gap-2 py-1">
                           <div className="min-w-0">
                             <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                              #{inc.id}
+                              {inc.id}
                               {zone && (
                                 <span className="ml-1 font-normal text-slate-400">
                                   · {zone.name}

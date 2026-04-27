@@ -152,6 +152,17 @@ def _handle_event(record: ConsumerRecord) -> None:
             _handle_iot_telemetry(event.get("data", {}))
             return
 
+        # ── notification.dispatch: trigger Celery immediately ──
+        if topic == "notification.dispatch":
+            try:
+                from app.core.config import settings
+                if settings.ENABLE_CELERY:
+                    from app.tasks.notification_tasks import process_notifications_task
+                    process_notifications_task.delay()
+            except Exception:
+                logger.exception("Failed to trigger notification dispatch task")
+            return
+
         # ── All other topics: fan-out via Redis → WebSocket ──
         redis_payload = {
             "event_type": event.get("event_type"),

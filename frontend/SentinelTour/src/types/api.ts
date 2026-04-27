@@ -140,6 +140,9 @@ export interface NotificationSummary {
   body: string;
   severity: NotificationSeverity;
   status: NotificationStatus;
+  event_type: string;
+  related_entity_type: string | null;
+  related_entity_id: number | null;
   created_at: string;
   read_at: string | null;
 }

@@ -7,6 +7,7 @@ from sqlalchemy import (
     DateTime,
     Index,
     CheckConstraint,
+    String,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -82,6 +83,11 @@ class IncidentStatusHistory(Base):
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
         index=True,
+    )
+
+    blockchain_tx_hash: Mapped[str | None] = mapped_column(
+        String(66),
+        nullable=True,
     )
 
     # =========================================================

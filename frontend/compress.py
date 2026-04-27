@@ -19,6 +19,12 @@ def zip_folder(folder_path, output_zip):
                 dirs.remove('.env')
             if 'google-services.json' in dirs:
                 dirs.remove('google-services.json')
+            if 'tests' in dirs:
+                dirs.remove('tests')
+            if 'venv' and 'venv_linux' in dirs:
+                dirs.remove('venv')
+                dirs.remove('venv_linux')
+
 
             for file in files:
                 # Build absolute file path
@@ -32,4 +38,6 @@ def zip_folder(folder_path, output_zip):
     print(f"Compressed: {folder_path} -> {output_zip}")
 
 # Usage
-zip_folder('./sentineltour', 'sentineltour-app.zip')
+folder = input("Enter the folder path to compress (e.g., './sentineltour'): ")
+output_zip = input("Enter the output ZIP file name (e.g., 'sentineltour-app.zip'): ")
+zip_folder(folder, output_zip)

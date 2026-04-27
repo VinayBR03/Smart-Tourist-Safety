@@ -273,7 +273,7 @@ export default function SettingsScreen() {
           <Card>
             <SettingRow icon={<Icon.Shield size={20} color={C.accent} />} label="Sentinel Tour" subtitle="Version 1.0.0 · Tourist Safety System" rightEl={<View />} />
             <RowDivider />
-            <SettingRow icon={<Icon.Info size={20} color={C.textMuted} />} label="User ID" subtitle={user?.id ? `#${user.id}` : '—'} rightEl={<View />} />
+            <SettingRow icon={<Icon.Info size={20} color={C.textMuted} />} label="User ID" subtitle={user?.id ? `${user.id}` : '—'} rightEl={<View />} />
           </Card>
         </Animated.View>
 

@@ -1,4 +1,7 @@
 import 'dotenv/config';
+const fs = require('fs');
+
+const googleServicesExists = fs.existsSync('./google-services.json');
 
 export default {
   name: "Sentinel Tour",
@@ -50,7 +53,7 @@ export default {
       "RECORD_AUDIO",
       "FOREGROUND_SERVICE"
     ],
-    googleServicesFile: "./google-services.json"
+    googleServicesFile: googleServicesExists ? "./google-services.json" : undefined
   },
   plugins: [
     "expo-router",

@@ -60,7 +60,7 @@ function IncidentCard({ item, index }: { item: IncidentSummary; index: number })
             <Badge label={item.status.replace('_', ' ')} variant={incidentVariant(item.status)} size="sm" dot />
           </View>
           <Text style={[styles.cardDesc, { color: C.textPrimary }]} numberOfLines={2}>
-            {item.description ?? `Incident #${item.id}`}
+            {item.description ?? `Incident ${item.id}`}
           </Text>
           <View style={styles.cardBottom}>
             <View style={styles.cardMeta}>

@@ -1,8 +1,7 @@
-#app/schemas/analytics_schema.py
+# app/schemas/analytics_schema.py
 
 from pydantic import BaseModel
 from typing import List, Dict
-from datetime import date
 
 
 # =========================================================
@@ -10,7 +9,9 @@ from datetime import date
 # =========================================================
 
 class IncidentTrendItem(BaseModel):
-    day: str
+    # Field name matches analytics_service.py which returns {"date": ..., "count": ...}
+    # Previously named "day" which caused Pydantic to serialise date=null for every item.
+    date: str
     count: int
 
 

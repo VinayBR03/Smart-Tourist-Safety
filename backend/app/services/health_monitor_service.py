@@ -23,6 +23,7 @@ from app.services.notification_service import create_notification
 from app.services.outbox_service import create_outbox_event
 from app.services.incident_service import create_incident
 from app.services.internal_ml_service import internal_ml_service
+from app.services.blockchain_service import log_health_alert
 
 from app.core.logging_config import get_correlation_id
 from app.core.config import settings
@@ -122,6 +123,37 @@ def _get_previous_health_score(db: Session, *, tourist_id: int) -> float:
 
 
 # =========================================================
+# Consecutive Alert Streak Tracker
+#
+# Tracks how many consecutive BLE health payloads exceeded a threshold
+# for each tourist. When a tourist hits ALERT_STREAK_SOS_THRESHOLD
+# consecutive alerts, an SOS incident is force-created regardless of
+# the cooldown guard. Resets on any normal reading.
+#
+# In-process dict is sufficient — wristband sends 1 payload per 30s,
+# streak only matters within a single server process lifetime, and
+# a restart is an acceptable reset (LoRa covers emergency path anyway).
+# =========================================================
+
+_alert_streaks: dict[int, int] = {}        # tourist_id → consecutive alert count
+ALERT_STREAK_SOS_THRESHOLD = 5             # 5 consecutive alerts ≈ 2.5 minutes
+
+
+def _increment_alert_streak(tourist_id: int) -> int:
+    _alert_streaks[tourist_id] = _alert_streaks.get(tourist_id, 0) + 1
+    return _alert_streaks[tourist_id]
+
+
+def _reset_alert_streak(tourist_id: int) -> None:
+    _alert_streaks.pop(tourist_id, None)
+
+
+def _is_sos_escalation(tourist_id: int) -> bool:
+    """True when consecutive alert count has hit the SOS threshold."""
+    return _alert_streaks.get(tourist_id, 0) >= ALERT_STREAK_SOS_THRESHOLD
+
+
+# =========================================================
 # Evaluate Health Metrics
 # =========================================================
 
@@ -129,6 +161,7 @@ def evaluate_health_metrics(
     db: Session,
     *,
     tourist_id:        int,
+    device_id:         Optional[str]   = None,
     heart_rate:        Optional[float],
     spo2:              Optional[float],
     body_temperature:  Optional[float],
@@ -146,14 +179,24 @@ def evaluate_health_metrics(
     spo2             = _sanitize(spo2,             50,  100)
     body_temperature = _sanitize(body_temperature, 30,   45)
 
-    # Persist telemetry
+    # Persist telemetry — include location point if GPS coords were provided
+    from geoalchemy2.functions import ST_SetSRID, ST_Point as ST_Pt
+    location_point = None
+    if latitude is not None and longitude is not None:
+        try:
+            location_point = ST_SetSRID(ST_Pt(longitude, latitude), 4326)
+        except Exception:
+            location_point = None
+
     db.add(
         HealthTelemetry(
             tourist_id=tourist_id,
+            device_id=device_id,
             heart_rate=heart_rate,
             spo2=spo2,
             body_temperature=body_temperature,
             fall_detected=fall_detected,
+            location=location_point,
             recorded_at=now,
         )
     )
@@ -242,16 +285,43 @@ def evaluate_health_metrics(
     # -------------------------------------------------
 
     if not rule_triggered and not ml_triggered:
+        # Reset consecutive alert counter on normal reading
+        _reset_alert_streak(tourist_id)
         return
 
-    _trigger_auto_incident(
-        db=db,
+    # Track consecutive alert readings — auto-escalate to SOS after threshold
+    streak = _increment_alert_streak(tourist_id)
+    _log(
+        "Alert streak",
         tourist_id=tourist_id,
-        reason=reason or "Health anomaly detected",
-        zone_id=zone_id,
-        latitude=latitude,
-        longitude=longitude,
+        streak=streak,
+        reason=reason,
     )
+
+    log_health_alert(
+        tourist_id, 0,
+        reason or "Health anomaly",
+        heart_rate or 0,
+        spo2 or 0,
+        body_temperature or 0,
+    )
+
+    try:
+        _trigger_auto_incident(
+            db=db,
+            tourist_id=tourist_id,
+            reason=reason or "Health anomaly detected",
+            zone_id=zone_id,
+            latitude=latitude,
+            longitude=longitude,
+        )
+    except Exception:
+        # If incident creation fails (e.g. no GPS + no zone), still persist
+        # the telemetry row and mark it as an alert — don't 500 the caller.
+        logger.exception(
+            "Auto-incident creation failed — telemetry row still written",
+            extra={"tourist_id": tourist_id},
+        )
 
 
 # =========================================================
@@ -268,6 +338,22 @@ def _trigger_auto_incident(
     longitude:  Optional[float],
 ) -> None:
 
+    # If we have no location at all (no GPS, no zone) we cannot create an
+    # incident — incident_service validates location presence.
+    # Skip gracefully so the telemetry row is still committed.
+    if zone_id is None and (latitude is None or longitude is None):
+        _log(
+            "Skipping auto-incident — no location available",
+            tourist_id=tourist_id,
+            reason=reason,
+        )
+        return
+
+    # Escalate to SOS description after streak threshold
+    if _is_sos_escalation(tourist_id):
+        reason = f"PERSISTENT ALERT — AUTO-SOS: {reason} (sustained for {_alert_streaks.get(tourist_id, 0)} readings)"
+        _reset_alert_streak(tourist_id)  # reset after escalation
+
     try:
         incident = create_incident(
             db=db,
@@ -279,6 +365,9 @@ def _trigger_auto_incident(
             zone_id=zone_id,
         )
     except ConflictError:
+        return
+    except Exception:
+        _log("create_incident failed", tourist_id=tourist_id, reason=reason)
         return
 
     create_notification(

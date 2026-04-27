@@ -93,6 +93,11 @@ class AuditLog(Base, TimestampMixin):
         index=True,
     )
 
+    blockchain_tx_hash: Mapped[str | None] = mapped_column(
+        String(66),
+        nullable=True,
+    )
+
     # =========================================================
     # Indexes
     # =========================================================

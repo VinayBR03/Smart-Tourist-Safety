@@ -28,6 +28,7 @@ from app.core.exceptions import (
 from app.core.s3_client import S3Client
 from app.services.audit_service import create_audit_log
 from app.services.outbox_service import create_outbox_event
+from app.services.blockchain_service import log_evidence
 from app.core.rate_limiter import RateLimiter
 from app.core.config import settings
 
@@ -296,6 +297,10 @@ def confirm_media_upload(
         topic="media.uploaded",
         payload={"media_id": media.id},
     )
+
+    if media_type != MediaType.PROFILE_PHOTO and incident_id:
+        tx = log_evidence(incident_id, user_id, media_type.value, s3_key)
+        media.blockchain_tx_hash = tx
 
     return media
 

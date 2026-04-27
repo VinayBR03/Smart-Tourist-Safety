@@ -96,6 +96,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.ml_retraining_tasks.crowd_retraining_task",
         "schedule": crontab(minute="*/20"),
     },
+
+    "process-notifications": {
+        "task": "app.tasks.notification_tasks.process_notifications_task",
+        "schedule": 10.0,  # every 10 seconds
+    },
 }
 
 

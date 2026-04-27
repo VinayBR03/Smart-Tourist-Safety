@@ -267,9 +267,9 @@ class ZoneWithStatusResponse(BaseModel):
     zone_type: Optional[str]
     is_active: bool
 
-    risk_score: Optional[float]
-    risk_level: Optional[RiskLevel]
-    status_updated_at: Optional[datetime]
+    risk_score: Optional[float] = None
+    risk_level: Optional[RiskLevel] = None
+    status_updated_at: Optional[datetime] = None
 
     created_at: datetime
     updated_at: datetime

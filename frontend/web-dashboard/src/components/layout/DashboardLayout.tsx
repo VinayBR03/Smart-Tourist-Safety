@@ -5,20 +5,29 @@ import { Outlet } from 'react-router-dom';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
 import { STORAGE_KEYS } from '../../constants/storage';
+import { useNotificationWS } from '../../hooks/useWebSocket';
+import { useNotifications } from '../../hooks/useNotifications';
 
 // ─────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────
 
-const MOBILE_BREAKPOINT  = 1024; // lg
-const COLLAPSED_STORAGE_KEY = STORAGE_KEYS.THEME + '_sidebar_collapsed'; // reuse prefix
+const MOBILE_BREAKPOINT     = 1024; // lg
+const COLLAPSED_STORAGE_KEY = STORAGE_KEYS.THEME + '_sidebar_collapsed';
 
 // ─────────────────────────────────────────────
 // DashboardLayout
 // ─────────────────────────────────────────────
 
 export function DashboardLayout() {
-  // ── Sidebar collapsed state (persisted) ──
+  // ── All state declared first so handlers below can safely reference setters ──
+
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  // ── Mobile sidebar open state ──
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // ── Sidebar collapsed state (persisted, desktop only) ──
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
       return localStorage.getItem(COLLAPSED_STORAGE_KEY) === 'true';
@@ -27,8 +36,21 @@ export function DashboardLayout() {
     }
   });
 
-  // ── Mobile sidebar open state ──
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const isDesktop = windowWidth >= MOBILE_BREAKPOINT;
+
+  // ── Resize handler — updates width and auto-closes mobile drawer ──
+  // setMobileOpen is called from an external event callback (not the effect body),
+  // so it does not violate react-hooks/set-state-in-effect.
+  useEffect(() => {
+    const handler = () => {
+      setWindowWidth(window.innerWidth);
+      if (window.innerWidth >= MOBILE_BREAKPOINT) {
+        setMobileOpen(false);
+      }
+    };
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
 
   // ── Persist collapsed ──
   useEffect(() => {
@@ -39,33 +61,28 @@ export function DashboardLayout() {
     }
   }, [collapsed]);
 
-  // ── Close mobile sidebar on resize to desktop ──
-  useEffect(() => {
-    const handler = () => {
-      if (window.innerWidth >= MOBILE_BREAKPOINT) {
-        setMobileOpen(false);
-      }
-    };
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  // ── Notification WebSocket: plays alert sound on new notifications ──
+  const { refetch: refetchNotifications } = useNotifications();
+
+  useNotificationWS(
+    useCallback(() => {
+      // Sound is already played inside useNotificationWS
+      // Refresh unread count / notification list
+      refetchNotifications();
+    }, [refetchNotifications])
+  );
 
   // ── Handlers ──
-  const handleCollapse = useCallback(() => {
-    if (window.innerWidth < MOBILE_BREAKPOINT) {
-      // On mobile: toggle open/close, not collapsed
-      setMobileOpen((v) => !v);
-    } else {
-      setCollapsed((v) => !v);
-    }
-  }, []);
-
   const handleMenuToggle = useCallback(() => {
-    if (window.innerWidth < MOBILE_BREAKPOINT) {
+    if (!isDesktop) {
       setMobileOpen((v) => !v);
     } else {
       setCollapsed((v) => !v);
     }
+  }, [isDesktop]);
+
+  const handleOverlayClick = useCallback(() => {
+    setMobileOpen(false);
   }, []);
 
   const sidebarWidth = collapsed ? 60 : 240;
@@ -77,20 +94,21 @@ export function DashboardLayout() {
       <Sidebar
         open={mobileOpen}
         collapsed={collapsed}
-        onCollapse={handleCollapse}
+        onCollapse={handleMenuToggle}
+        onOverlayClick={handleOverlayClick}
       />
 
       {/* Main content — offset by sidebar width on desktop */}
       <div
         className="flex flex-col flex-1 min-w-0 transition-all duration-300"
-        style={{
-          marginLeft: window.innerWidth >= MOBILE_BREAKPOINT ? sidebarWidth : 0,
-        }}
+        style={{ marginLeft: isDesktop ? sidebarWidth : 0 }}
       >
         {/* Topbar */}
         <Navbar
           onMenuToggle={handleMenuToggle}
-          sidebarOpen={mobileOpen || !collapsed}
+          mobileOpen={mobileOpen}
+          isDesktop={isDesktop}
+          collapsed={collapsed}
         />
 
         {/* Page content */}

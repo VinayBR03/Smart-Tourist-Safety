@@ -22,7 +22,21 @@ const SOURCE_LABELS: Record<string, string> = {
   [IncidentSource.SYSTEM]: 'System',
   [IncidentSource.ML]:     'ML',
   [IncidentSource.HEALTH]: 'Health',
+  // lowercase fallbacks in case the backend returns lowercased values
+  mobile: 'Mobile',
+  iot:    'IoT',
+  system: 'System',
+  ml:     'ML',
+  health: 'Health',
 };
+
+// Normalise source key — strip enum prefix (e.g. "IncidentSource.MOBILE" → "MOBILE")
+// and then look up the label.
+function sourceLabel(raw: string | null | undefined): string {
+  if (!raw) return '—';
+  const key = raw.includes('.') ? raw.split('.').pop()! : raw;
+  return SOURCE_LABELS[key] ?? SOURCE_LABELS[key.toUpperCase()] ?? key;
+}
 
 function buildColumns(zoneNames: Record<number, string> = {}): Column<IncidentSummary>[] {
   return [
@@ -30,7 +44,7 @@ function buildColumns(zoneNames: Record<number, string> = {}): Column<IncidentSu
       key:    'id',
       header: 'ID',
       render: (i) => (
-        <span className="font-mono text-sm text-slate-500 dark:text-slate-400">#{i.id}</span>
+        <span className="font-mono text-sm text-slate-500 dark:text-slate-400">{i.id}</span>
       ),
     },
     {
@@ -50,17 +64,29 @@ function buildColumns(zoneNames: Record<number, string> = {}): Column<IncidentSu
     {
       key:    'source',
       header: 'Source',
-      render: (i) => (
-        <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full">
-          {SOURCE_LABELS[i.source] ?? i.source}
-        </span>
-      ),
+      render: (i) => {
+        const label = sourceLabel(i.source);
+        if (label === '—') {
+          return <span className="text-slate-400 dark:text-slate-600 text-xs">—</span>;
+        }
+        return (
+          <span className="text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full whitespace-nowrap">
+            {label}
+          </span>
+        );
+      },
     },
     {
       key:    'is_auto_generated',
       header: 'Type',
       render: (i) => (
-        <span className={`text-xs font-medium ${i.is_auto_generated ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400'}`}>
+        <span
+          className={`text-xs font-medium ${
+            i.is_auto_generated
+              ? 'text-amber-600 dark:text-amber-400'
+              : 'text-blue-600 dark:text-blue-400'
+          }`}
+        >
           {i.is_auto_generated ? 'Auto' : 'Manual'}
         </span>
       ),
@@ -69,7 +95,7 @@ function buildColumns(zoneNames: Record<number, string> = {}): Column<IncidentSu
       key:    'created_at',
       header: 'Reported',
       render: (i) => (
-        <span className="text-xs text-slate-500 dark:text-slate-400">
+        <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
           {formatTimeAgo(i.created_at)}
         </span>
       ),

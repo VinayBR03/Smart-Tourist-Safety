@@ -72,6 +72,11 @@ class ZoneStatus(Base, TimestampMixin, VersionMixin):
         server_default=text("'ml'"),
     )
 
+    blockchain_tx_hash: Mapped[str | None] = mapped_column(
+        String(66),
+        nullable=True,
+    )
+
     # =========================================================
     # Constraints & Indexes
     # =========================================================

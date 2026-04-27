@@ -194,8 +194,10 @@ def handle_location_event(
             logger.exception("Zone resolution failed")
             zone_id = None
 
-    if location_point is None and zone_id is None:
-        return
+    # NOTE: Do NOT return here when location_point is None.
+    # Health data must be persisted regardless of GPS availability.
+    # The phone may not have GPS permission, or the wristband sends 0.0/0.0
+    # as a sentinel — neither case should discard health telemetry.
 
     last_event = (
         db.query(LocationEvent.timestamp)
@@ -204,7 +206,8 @@ def handle_location_event(
         .first()
     )
 
-    if last_event and not should_accept_location(
+    # Only throttle location events — never throttle health-only events
+    if location_point is not None and last_event and not should_accept_location(
         last_timestamp=last_event[0],
         battery_percentage=battery_percentage,
     ):
@@ -245,9 +248,10 @@ def handle_location_event(
     evaluate_health_metrics(
         db=db,
         tourist_id=tourist_id,
+        device_id=device_id,
         heart_rate=heart_rate,
         spo2=spo2,
-        temperature=temperature,
+        body_temperature=temperature,
         fall_detected=fall_detected,
         zone_id=zone_id,
         latitude=latitude,
@@ -308,4 +312,110 @@ def handle_location_event(
             "zone_id": zone_id,
             "sos_flag": sos_flag,
         },
+    )
+
+# =========================================================
+# BLE Gateway Health Ingestion
+# =========================================================
+#
+# Dedicated entry point called by the BLE gateway router endpoints
+# (/iot/gateway/health and /iot/health via IoT key).
+#
+# Unlike handle_location_event, this ALWAYS persists health data
+# regardless of GPS availability — GPS is optional for health readings.
+# =========================================================
+
+def handle_health_event(
+    db: Session,
+    *,
+    device_id: str,
+    heart_rate: Optional[float],
+    spo2: Optional[float],
+    body_temperature: Optional[float],
+    is_alert: bool = False,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+    device_timestamp: Optional[datetime] = None,
+) -> None:
+
+    device_id = _validate_device_id(device_id)
+
+    rate_limiter.enforce(
+        prefix="iot_health",
+        identifier=device_id,
+        limit=300,
+        window_seconds=60,
+    )
+
+    stmt = select(IoTDevice).where(IoTDevice.device_id == device_id).with_for_update()
+    device = db.execute(stmt).scalar_one_or_none()
+
+    if not device:
+        raise NotFoundError("Device")
+    if not device.is_verified:
+        raise ForbiddenError("Device not verified")
+    if device.status != DeviceStatus.ACTIVE:
+        raise ForbiddenError("Device inactive")
+
+    tourist_id = _resolve_active_tourist(db, device_id=device_id)
+    if not tourist_id:
+        logger.info("Device has no active assignment", extra={"device_id": device_id})
+        return
+
+    # Resolve zone if GPS is available — optional, never blocks health write
+    zone_id = None
+    if latitude is not None and longitude is not None:
+        try:
+            latitude, longitude = _validate_coordinates(latitude, longitude)
+            zone_id, _ = resolve_zone_for_location(db, latitude=latitude, longitude=longitude)
+        except Exception:
+            logger.exception("Zone resolution failed")
+            zone_id = None
+
+    now = datetime.now(timezone.utc)
+    if device_timestamp:
+        if device_timestamp.tzinfo is None:
+            device_timestamp = device_timestamp.replace(tzinfo=timezone.utc)
+        if device_timestamp > now + timedelta(minutes=5):
+            device_timestamp = now
+        if device_timestamp < now - timedelta(days=7):
+            device_timestamp = now
+
+    # Always write health telemetry — GPS is optional
+    evaluate_health_metrics(
+        db=db,
+        tourist_id=tourist_id,
+        device_id=device_id,
+        heart_rate=heart_rate,
+        spo2=spo2,
+        body_temperature=body_temperature,
+        fall_detected=False,
+        zone_id=zone_id,
+        latitude=latitude,
+        longitude=longitude,
+    )
+
+    # Update device heartbeat with no battery info (health POST has none)
+    update_heartbeat(
+        db=db,
+        device_id=device_id,
+        battery_percentage=None,
+        battery_voltage=None,
+        firmware_version=None,
+    )
+
+    create_outbox_event(
+        db=db,
+        topic="health.telemetry",
+        payload={
+            "tourist_id": tourist_id,
+            "device_id":  device_id,
+            "zone_id":    zone_id,
+            "is_alert":   is_alert,
+        },
+    )
+
+    logger.info(
+        "BLE health event processed",
+        extra={"device_id": device_id, "tourist_id": tourist_id, "zone_id": zone_id},
     )

@@ -28,7 +28,6 @@ import { IncidentForm }         from '../../components/incidents/IncidentForm';
 
 import { IncidentStatus, IncidentSource } from '../../types/enums';
 import type { IncidentCreateRequest }     from '../../types/incident';
-import type { ZoneWithStatus }            from '../../types/zone';
 
 // ─────────────────────────────────────────────
 // Filter types
@@ -57,7 +56,7 @@ export function IncidentListPage() {
 
   // ── Zone lookup map ──
   const zoneNames = useMemo(
-    () => Object.fromEntries((zones as ZoneWithStatus[]).map((z) => [z.id, z.name])),
+    () => Object.fromEntries(zones.map((z) => [z.id, z.name])),
     [zones]
   );
 

@@ -129,11 +129,14 @@ def mark_as_read(
     current_user: User = Depends(get_current_user),
 ):
     try:
-        return mark_notification_as_read(
+        notification = mark_notification_as_read(
             db=db,
             notification_id=notification_id,
             user_id=current_user.id,
         )
+        db.commit()
+        db.refresh(notification)
+        return notification
 
     except NotFoundError:
         raise HTTPException(

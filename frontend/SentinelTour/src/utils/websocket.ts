@@ -37,7 +37,7 @@ class WebSocketClient {
         // ── Handle notification events ────────────────────
         // The backend may send either 'notification' or 'new_notification'
         // depending on version. Handle both.
-        if (type === 'notification' || type === 'new_notification') {
+        if (type === 'notification' || type === 'new_notification' || type === 'notification.created') {
           // 1. Bump the badge count immediately
           useNotificationStore.getState().increment();
 
@@ -52,7 +52,7 @@ class WebSocketClient {
         // ── Handle incident status change push ────────────
         // Some backend versions push 'incident_update' or embed the
         // notification inside a 'notification' event with event_type.
-        if (type === 'incident_update' || data?.payload?.event_type === 'INCIDENT_STATUS_CHANGED') {
+        if (type === 'incident_update' || type === 'incident.updated' || type === 'incident.created' || type === 'incident.resolved' || data?.data?.event_type === 'INCIDENT_STATUS_CHANGED') {
           queryClient.invalidateQueries({ queryKey: ['incidents', 'me'] });
           queryClient.invalidateQueries({ queryKey: ['notifications'] });
           queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
@@ -60,12 +60,12 @@ class WebSocketClient {
         }
 
         // ── Handle zone risk change ───────────────────────
-        if (type === 'zone_update' || type === 'zone_risk_change') {
+        if (type === 'zone_update' || type === 'zone_risk_change' || type === 'zone.risk.updated') {
           queryClient.invalidateQueries({ queryKey: ['zones'] });
         }
 
         // ── Handle health alert ───────────────────────────
-        if (type === 'health_alert') {
+        if (type === 'health_alert' || type === 'health.alert') {
           queryClient.invalidateQueries({ queryKey: ['health', 'latest'] });
           queryClient.invalidateQueries({ queryKey: ['notifications'] });
           useNotificationStore.getState().increment();

@@ -28,6 +28,7 @@ from app.templates.email_template import render_notification
 from app.services.email_service import send_email
 from app.services.push_service import send_push
 from app.services.sms_service import send_sms
+from app.services import realtime_service
 
 
 # =========================================================
@@ -203,7 +204,7 @@ def mark_notification_as_read(
     if notification.user_id != user_id:
         raise ForbiddenError("Access denied")
 
-    if notification.status == NotificationStatus.SENT:
+    if notification.status in (NotificationStatus.SENT, NotificationStatus.PENDING):
         notification.status = NotificationStatus.READ
 
     notification.updated_at = _now()
@@ -315,6 +316,37 @@ def dispatch_notification_by_id(
 def _route_channel(db: Session, notification: Notification):
 
     if notification.channel == NotificationChannel.IN_APP:
+        # Push directly to the connected user via WebSocket.
+        # Dispatch runs in a Celery worker (no running event loop),
+        # so we use asyncio.run() to drive the coroutine to completion.
+        import asyncio
+        payload = notification.payload or {}
+        data = {
+            "notification_id":     notification.id,
+            "event_type":          notification.event_type,
+            "severity":            notification.severity.value if notification.severity else None,
+            "title":               payload.get("push_title") or payload.get("title", ""),
+            "body":                payload.get("push_body") or payload.get("body", ""),
+            "related_entity_type": notification.related_entity_type.value if notification.related_entity_type else None,
+            "related_entity_id":   notification.related_entity_id,
+        }
+        try:
+            loop = asyncio.get_running_loop()
+            # Inside an async context (FastAPI request) — schedule as task
+            loop.create_task(
+                realtime_service.broadcast_notification_created(
+                    user_id=notification.user_id,
+                    data=data,
+                )
+            )
+        except RuntimeError:
+            # No running loop (Celery worker) — run synchronously
+            asyncio.run(
+                realtime_service.broadcast_notification_created(
+                    user_id=notification.user_id,
+                    data=data,
+                )
+            )
         return
 
     user = (

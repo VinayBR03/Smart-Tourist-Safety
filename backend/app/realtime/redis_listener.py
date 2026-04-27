@@ -43,7 +43,7 @@ async def _route_event(
     event_type: str        = event_type_raw
     data:       Dict[str, Any] = data_raw
 
-    message = {"event_type": event_type, "data": data}
+    message = {"type": event_type.lower(), "event_type": event_type.lower(), "data": data}
 
     # ----------------------------------------------------------
     # Role-targeted broadcast  (_target_role set by publish_to_role)

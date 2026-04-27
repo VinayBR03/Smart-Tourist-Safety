@@ -18,6 +18,13 @@ from app.templates.locales.ml import LOCALE as ML
 # =========================================================
 
 LOCALES = {
+    "EN": EN,
+    "HI": HI,
+    "KN": KN,
+    "TA": TA,
+    "TE": TE,
+    "ML": ML,
+    # lowercase aliases for backwards compat
     "en": EN,
     "hi": HI,
     "kn": KN,
@@ -26,7 +33,7 @@ LOCALES = {
     "ml": ML,
 }
 
-DEFAULT_LANGUAGE = "en"
+DEFAULT_LANGUAGE = "EN"
 
 
 # =========================================================
@@ -47,13 +54,14 @@ def _resolve_language(user: User | None, context: Dict | None) -> str:
             if hasattr(user.preferred_language, "value") \
             else user.preferred_language
 
-        if lang in LOCALES:
-            return lang
+        lang_upper = lang.upper()
+        if lang_upper in LOCALES:
+            return lang_upper
 
     if context:
         lang = context.get("language")
-        if lang in LOCALES:
-            return lang
+        if lang and lang.upper() in LOCALES:
+            return lang.upper()
 
     return DEFAULT_LANGUAGE
 

@@ -45,6 +45,7 @@ logger = get_logger(__name__)
 
 
 cleanup_task_handle = None
+notification_task_handle = None
 kafka_task_handle   = None
 redis_task_handle   = None
 
@@ -56,7 +57,7 @@ redis_task_handle   = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 
-    global cleanup_task_handle
+    global cleanup_task_handle, notification_task_handle
     global kafka_task_handle
     global redis_task_handle
 
@@ -91,6 +92,55 @@ async def lifespan(app: FastAPI):
             cleanup_task_handle = asyncio.create_task(cleanup_loop())
             logger.info("Cleanup scheduler started")
 
+            # Notification dispatch loop (replaces Celery when disabled)
+            async def notification_dispatch_loop():
+                from app.services.notification_service import dispatch_notification_by_id
+                from app.models.notification import Notification
+                from app.core.enums import NotificationStatus
+                from sqlalchemy import select, or_
+                from datetime import datetime, timezone
+
+                while True:
+                    db = SessionLocal()
+                    try:
+                        now = datetime.now(timezone.utc)
+                        stmt = (
+                            select(Notification)
+                            .where(
+                                Notification.status == NotificationStatus.PENDING,
+                                Notification.retry_count < 5,
+                                or_(
+                                    Notification.next_retry_at.is_(None),
+                                    Notification.next_retry_at <= now,
+                                ),
+                            )
+                            .limit(50)
+                            .with_for_update(skip_locked=True)
+                        )
+                        pending = db.execute(stmt).scalars().all()
+                        ids = [n.id for n in pending]
+                        db.commit()
+
+                        for nid in ids:
+                            ndb = SessionLocal()
+                            try:
+                                dispatch_notification_by_id(db=ndb, notification_id=nid)
+                                ndb.commit()
+                            except Exception:
+                                ndb.rollback()
+                                logger.exception("Notification dispatch failed id=%s", nid)
+                            finally:
+                                ndb.close()
+                    except Exception:
+                        logger.exception("Notification dispatch loop error")
+                    finally:
+                        db.close()
+
+                    await asyncio.sleep(5)
+
+            notification_task_handle = asyncio.create_task(notification_dispatch_loop())
+            logger.info("Notification dispatch loop started")
+
         if settings.ENABLE_KAFKA:
             try:
                 kafka_task_handle = asyncio.create_task(start_kafka_consumer())
@@ -115,7 +165,7 @@ async def lifespan(app: FastAPI):
 
     logger.info("Application shutdown initiated")
 
-    for task in [cleanup_task_handle, kafka_task_handle, redis_task_handle]:
+    for task in [cleanup_task_handle, notification_task_handle, kafka_task_handle, redis_task_handle]:
         if task:
             task.cancel()
             with suppress(asyncio.CancelledError):

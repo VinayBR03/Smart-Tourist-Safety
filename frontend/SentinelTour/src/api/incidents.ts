@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { CreateIncidentRequest, IncidentDetail, IncidentSummary, IncidentTimelineEntry } from '@/types/api';
+import type { CreateIncidentRequest, IncidentDetail, IncidentSummary, IncidentTimelineEntry, MediaResponse } from '@/types/api';
 
 export const incidentsApi = {
   create: (data: CreateIncidentRequest) =>
@@ -13,4 +13,7 @@ export const incidentsApi = {
 
   getTimeline: (id: number) =>
     apiClient.get<IncidentTimelineEntry[]>(`/incidents/${id}/timeline`).then((r) => r.data),
+
+  getMedia: (id: number) =>
+    apiClient.get<MediaResponse[]>(`/media/incident/${id}`).then((r) => r.data),
 };
