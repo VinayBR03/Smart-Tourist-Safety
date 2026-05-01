@@ -5,7 +5,7 @@ from web3 import Web3
 
 w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:8545"))
 
-_blockchain_dir = Path(__file__).parent.parent / "blockchain"
+_blockchain_dir = Path(__file__).resolve().parents[3] / "blockchain"
 
 with open(_blockchain_dir / "deployed_addresses.json") as f:
     ADDRESSES = json.load(f)

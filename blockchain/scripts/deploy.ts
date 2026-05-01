@@ -1,8 +1,12 @@
 import * as fs from "fs";
-import * as path from "path";
 import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { hardhat as hardhatChain } from "viem/chains";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const CONTRACTS = [
   "IncidentLedger",
@@ -33,17 +37,19 @@ async function main() {
   const addresses: Record<string, string> = {};
 
   for (const name of CONTRACTS) {
-    const artifactPath = path.join(
+    const artifactPath = join(
       __dirname,
       `../artifacts/contracts/${name}.sol/${name}.json`
     );
     const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
 
-    //@ts-ignore
+    // @ts-ignore
     const hash = await walletClient.deployContract({
       abi:      artifact.abi,
       bytecode: artifact.bytecode,
       args:     [],
+      chain:    hardhatChain,
+      account,
     });
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
@@ -51,7 +57,7 @@ async function main() {
     console.log(`${name} → ${receipt.contractAddress}`);
   }
 
-  const outPath = path.join(__dirname, "../deployed_addresses.json");
+  const outPath = join(__dirname, "../deployed_addresses.json");
   fs.writeFileSync(outPath, JSON.stringify(addresses, null, 2));
   console.log("\nSaved to deployed_addresses.json");
 }

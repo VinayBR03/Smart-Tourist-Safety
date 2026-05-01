@@ -54,6 +54,7 @@ EXPOSE 8001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8001/health || exit 1
 
+# main:app is correct — main.py sits at /app/main.py and PYTHONPATH=/app
 CMD ["gunicorn", "main:app", \
      "-k", "uvicorn.workers.UvicornWorker", \
      "-w", "2", \

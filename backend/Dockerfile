@@ -28,9 +28,10 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 ENV PATH="/usr/local/bin:$PATH"
 
+# FIX #5: libgdal-dev → libgdal32 (runtime shared lib only, headers not needed at runtime)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
-    libgdal-dev \
+    libgdal32 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 

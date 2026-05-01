@@ -55,6 +55,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # FIX #4: healthcheck added so mqtt-ingestion waits properly
   mosquitto:
     image: eclipse-mosquitto:2
     container_name: tourist_mosquitto
@@ -66,6 +67,12 @@ services:
     networks:
       - app_net
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -p 1883 -t '$$SYS/#' -C 1 -i healthcheck --quiet 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
@@ -121,6 +128,8 @@ services:
   # Application Services
   # ═══════════════════════════════════════════
 
+  # ai-engine is a pure HTTP inference service — no Kafka consumer, no Redis.
+  # Backend calls it via HTTP only. No infra depends_on needed.
   ai-engine:
     build:
       context: ./ai_engine
@@ -180,6 +189,8 @@ services:
       start_period: 15s
       retries: 3
 
+  # FIX #9: --queues covers all 6 queues in celery_app.py task_routes.
+  # Without this the worker only picks up "default" — all routed tasks silently dropped.
   celery:
     build:
       context: ./backend
@@ -191,6 +202,7 @@ services:
       --loglevel=info
       --concurrency=4
       --max-tasks-per-child=1000
+      --queues=default,maintenance,device,notification,risk,outbox,ml
     depends_on:
       postgres:
         condition: service_healthy
@@ -215,6 +227,7 @@ services:
       start_period: 20s
       retries: 3
 
+  # FIX #3: beat schedule moved to named volume — /tmp is wiped on every restart
   celery-beat:
     build:
       context: ./backend
@@ -225,7 +238,7 @@ services:
       celery -A app.core.celery_app.celery_app beat
       --loglevel=info
       --scheduler celery.beat.PersistentScheduler
-      --schedule /tmp/celerybeat-schedule
+      --schedule /var/celery/celerybeat-schedule
     depends_on:
       postgres:
         condition: service_healthy
@@ -237,6 +250,7 @@ services:
       - ./backend/.env.docker
     volumes:
       - ./backend/app/secrets/sentinel-tour-firebase-adminsdk-fbsvc-c87847b6c7.json:/app/app/secrets/firebase-service-account.json:ro
+      - celerybeat_schedule:/var/celery
     networks:
       - app_net
     dns:
@@ -246,6 +260,10 @@ services:
     healthcheck:
       disable: true
 
+  # FIX #2: MQTT_USERNAME + MQTT_PASSWORD added (main.go reads these as optional env vars;
+  #          required when mosquitto has allow_anonymous false).
+  # FIX #4: depends_on mosquitto → service_healthy (was service_started).
+  # NOTE:  actual MQTT topic format is crowdguard/device/{device_id}/{type}  (from main.go)
   mqtt-ingestion:
     build:
       context: ./mqtt_ingestion
@@ -254,14 +272,16 @@ services:
     container_name: tourist_mqtt_ingestion
     depends_on:
       mosquitto:
-        condition: service_started
+        condition: service_healthy
       kafka:
         condition: service_healthy
     environment:
-      MQTT_BROKER:       tcp://mosquitto:1883
-      MQTT_TOPIC_PREFIX: crowdguard
-      KAFKA_BROKERS:     kafka:29092
-      KAFKA_TOPIC:       iot.telemetry
+      MQTT_BROKER:        tcp://mosquitto:1883
+      MQTT_TOPIC_PREFIX:  crowdguard
+      MQTT_USERNAME:      ingestion_service
+      MQTT_PASSWORD:      ${MQTT_INGESTION_PASSWORD}
+      KAFKA_BROKERS:      kafka:29092
+      KAFKA_TOPIC:        iot.telemetry
     networks:
       - app_net
     dns:
@@ -283,7 +303,7 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "3000:3000"
+      - "3000:80"
     networks:
       - app_net
     dns:
@@ -293,7 +313,7 @@ services:
     volumes:
       - ./frontend/web-dashboard/public/config.js:/usr/share/nginx/html/config.js
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      test: ["CMD", "wget", "-qO-", "http://localhost"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -304,3 +324,4 @@ volumes:
   mosquitto_data:
   zookeeper_data:
   kafka_data:
+  celerybeat_schedule:    # FIX #3: persistent beat schedule
