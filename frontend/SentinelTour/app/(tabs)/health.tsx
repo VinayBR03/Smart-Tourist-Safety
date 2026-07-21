@@ -3,7 +3,6 @@ import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Dimensions, ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import Animated, {
   FadeInDown, useSharedValue, withRepeat, withTiming,
@@ -11,7 +10,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Path, Line, Circle, Defs, LinearGradient, Stop, G, Text as SvgText } from 'react-native-svg';
 import { Header } from '@/components/layout/Header';
-import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Icon } from '@/components/ui/Icons';
 import { healthApi } from '@/api/health';
@@ -19,7 +17,6 @@ import { useAuthStore } from '@/store/authStore';
 import { useDeviceStore } from '@/store/deviceStore';
 import { Typography, Spacing, Radius } from '@/constants/theme';
 import { formatDistanceToNow } from 'date-fns';
-import type { HealthTelemetry } from '@/types/api';
 import { useThemedStyles } from '@/utils/themedStyles';
 import { useColors } from '@/context/ThemeContext';
 
@@ -80,8 +77,10 @@ function LivePulse({ color }: { color: string }) {
   useEffect(() => {
     scale.value   = withRepeat(withTiming(1.6, { duration: 1200, easing: Easing.out(Easing.ease) }), -1, false);
     opacity.value = withRepeat(withTiming(0,   { duration: 1200, easing: Easing.out(Easing.ease) }), -1, false);
-  }, []);
+  }, [opacity, scale]); // Added dependencies here
+  
   const ringStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }], opacity: opacity.value, borderColor: color }));
+  
   return (
     <View style={styles.pulseWrap}>
       <Animated.View style={[styles.pulseRing, ringStyle]} />

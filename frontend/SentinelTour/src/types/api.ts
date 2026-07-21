@@ -161,7 +161,7 @@ export interface Zone {
   center_latitude: number | null;
   center_longitude: number | null;
   radius_meters: number | null;
-  geometry: Array<[number, number]> | null;
+  geometry: [number, number][] | null;
   is_active: boolean;
   created_at: string;
 }

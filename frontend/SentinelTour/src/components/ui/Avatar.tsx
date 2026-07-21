@@ -1,6 +1,4 @@
 import { View, Text, Image, StyleSheet } from 'react-native';
-import { Colors, Radius } from '@/constants/theme';
-
 interface AvatarProps {
   name?: string | null;
   imageUri?: string | null;

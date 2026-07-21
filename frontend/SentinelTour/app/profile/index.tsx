@@ -1,5 +1,4 @@
-// app/profile/index.tsx
-import { useState, useCallback, useEffect } from 'react';
+import { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Alert, Image, Modal, FlatList,
@@ -42,7 +41,7 @@ const NATIONALITIES = [
   'Ukrainian','Vietnamese','Other',
 ];
 
-// ─── Calendar picker ──────────────────────────────────────
+// --- Calendar picker --------------------------------------
 function CalendarPicker({ visible, value, onChange, onClose }: { visible: boolean; value: string; onChange: (d: string) => void; onClose: () => void }) {
   const C = useColors();
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -98,7 +97,7 @@ function CalendarPicker({ visible, value, onChange, onClose }: { visible: boolea
   );
 }
 
-// ─── Nationality picker ───────────────────────────────────
+// --- Nationality picker -----------------------------------
 function NationalityPicker({ visible, value, onChange, onClose }: { visible: boolean; value: string; onChange: (v: string) => void; onClose: () => void }) {
   const C = useColors();
   const [search, setSearch] = useState('');
@@ -129,7 +128,7 @@ function NationalityPicker({ visible, value, onChange, onClose }: { visible: boo
   );
 }
 
-// ─── Small helpers ────────────────────────────────────────
+// --- Small helpers ----------------------------------------
 function SectionLabel({ title }: { title: string }) {
   const C = useColors();
   return <Text style={[styles.sectionLabel, { color: C.textMuted }]}>{title}</Text>;
@@ -180,7 +179,7 @@ function ChipRow({ options, value, onChange }: { options: string[]; value: strin
   );
 }
 
-// ─── S3/static upload helper ──────────────────────────────
+// --- S3/static upload helper ------------------------------
 async function uploadViaXHR(fileUri: string, presignedUrl: string, contentType: string): Promise<void> {
   const resp = await fetch(fileUri);
   const blob = await resp.blob();
@@ -188,15 +187,22 @@ async function uploadViaXHR(fileUri: string, presignedUrl: string, contentType: 
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', presignedUrl);
     xhr.setRequestHeader('Content-Type', contentType);
-    xhr.onreadystatechange = () => { if (xhr.readyState !== 4) return; xhr.status === 200 ? resolve() : reject(new Error(`S3 ${xhr.status}`)); };
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState !== 4) return;
+      if (xhr.status === 200) {
+        resolve();
+      } else {
+        reject(new Error(`S3 ${xhr.status}`));
+      }
+    };
     xhr.onerror = () => reject(new Error('XHR error'));
     xhr.send(blob);
   });
 }
 
-// ─── Fetch the latest profile photo URL from the backend ─
+// --- Fetch the latest profile photo URL from the backend -
 // Tries presigned URL first, then falls back to static path.
-// Returns null if no photo exists — Avatar will show instead.
+// Returns null if no photo exists -- Avatar will show instead.
 async function fetchProfilePhotoUrl(): Promise<string | null> {
   try {
     const mediaList = await mediaApi.listMine();
@@ -221,7 +227,7 @@ async function fetchProfilePhotoUrl(): Promise<string | null> {
   }
 }
 
-// ─── Main screen ──────────────────────────────────────────
+// --- Main screen ------------------------------------------
 export default function ProfileScreen() {
   const t = useThemedStyles();
   const { t: tr } = useTranslation();
@@ -231,16 +237,8 @@ export default function ProfileScreen() {
   const [editing,  setEditing]  = useState(editParam === 'true');
   const [showCal,  setShowCal]  = useState(false);
   const [showNat,  setShowNat]  = useState(false);
-
-  // ── Profile photo state ───────────────────────────────
-  // localPhotoUri: set when the user JUST picked a new photo from their gallery.
-  //   It shows immediately while the upload is in progress and stays set
-  //   until the server-side URL query resolves with a valid URL.
-  //   We deliberately do NOT clear it on save — doing so caused the avatar
-  //   to flash back because photoUrl hadn't resolved yet.
   const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
 
-  // Query fetches the latest photo URL from GET /media/me
   const { data: serverPhotoUrl, refetch: refetchPhoto } = useQuery({
     queryKey: ['profile', 'photo', user?.id],
     queryFn:  fetchProfilePhotoUrl,
@@ -249,16 +247,10 @@ export default function ProfileScreen() {
     retry: false,
   });
 
-  // Once the server URL resolves (non-null), drop the local URI —
-  // the server URL takes over and the local copy is no longer needed.
-  useEffect(() => {
-    if (serverPhotoUrl) setLocalPhotoUri(null);
-  }, [serverPhotoUrl]);
+  // Derived state to determine which photo to show
+  const displayPhoto = serverPhotoUrl ? serverPhotoUrl : localPhotoUri;
 
-  // What we actually render: prefer local (freshly picked) → server URL → null (Avatar)
-  const displayPhoto = localPhotoUri ?? serverPhotoUrl ?? null;
-
-  // ── Form state ────────────────────────────────────────
+  // --- Form state ----------------------------------------
   const [form, setForm] = useState({
     full_name:          user?.full_name          ?? '',
     phone:              user?.phone              ?? '',
@@ -281,7 +273,7 @@ export default function ProfileScreen() {
   const setMedicalConditions = (v: string) => setForm((p) => ({ ...p, medical_conditions: v }));
   const setAllergies         = (v: string) => setForm((p) => ({ ...p, allergies:          v }));
 
-  // ── Save mutation ─────────────────────────────────────
+  // --- Save mutation -------------------------------------
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload: Record<string, string> = {};
@@ -293,9 +285,6 @@ export default function ProfileScreen() {
       setUser(updatedUser);
       queryClient.setQueryData(['auth', 'me'], updatedUser);
       if (updatedUser.preferred_language) i18n.setLanguage(updatedUser.preferred_language);
-      // ← Do NOT call setLocalPhotoUri(null) here.
-      //   localPhotoUri will clear itself via the useEffect above once
-      //   serverPhotoUrl resolves. Clearing it here caused the Avatar flash.
       refetchPhoto();  // ensure latest photo URL is fetched
       setEditing(false);
       Alert.alert('Saved', 'Profile updated successfully.');
@@ -306,30 +295,28 @@ export default function ProfileScreen() {
     },
   });
 
-  // ── Photo picker ──────────────────────────────────────
-  const handlePickPhoto = useCallback(async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') { Alert.alert('Permission Required', 'Allow photo access to update your profile photo.'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
-    if (!result.canceled && result.assets[0]) {
-      const asset    = result.assets[0];
-      const mimeType = asset.mimeType ?? 'image/jpeg';
-      // Show the picked image immediately
-      setLocalPhotoUri(asset.uri);
-      try {
-        const upload = await mediaApi.requestUpload({ media_type: 'PROFILE_PHOTO', content_type: mimeType, file_size_bytes: asset.fileSize ?? 500_000 });
-        await uploadViaXHR(asset.uri, upload.upload_url, mimeType);
-        await mediaApi.confirmUpload(upload.s3_key, 'PROFILE_PHOTO');
-        // Invalidate so useEffect will swap local→server URL when ready
-        queryClient.invalidateQueries({ queryKey: ['profile', 'photo', user?.id] });
-        Alert.alert('Photo Updated', 'Profile photo saved successfully.');
-      } catch (err) {
-        console.warn('[Profile] Photo upload error:', err);
-        // Keep localPhotoUri — at least the user sees what they picked
-        Alert.alert('Upload Failed', 'Could not upload photo to server. Tap Save to retry.');
-      }
+  // --- Photo picker --------------------------------------
+  const handlePickPhoto = async () => {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') { Alert.alert('Permission Required', 'Allow photo access to update your profile photo.'); return; }
+  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+  
+  if (!result.canceled && result.assets[0]) {
+    const asset    = result.assets[0];
+    const mimeType = asset.mimeType ?? 'image/jpeg';
+    setLocalPhotoUri(asset.uri);
+    try {
+      const upload = await mediaApi.requestUpload({ media_type: 'PROFILE_PHOTO', content_type: mimeType, file_size_bytes: asset.fileSize ?? 500_000 });
+      await uploadViaXHR(asset.uri, upload.upload_url, mimeType);
+      await mediaApi.confirmUpload(upload.s3_key, 'PROFILE_PHOTO');
+      queryClient.invalidateQueries({ queryKey: ['profile', 'photo', user?.id] });
+      Alert.alert('Photo Updated', 'Profile photo saved successfully.');
+    } catch (err) {
+      console.warn('[Profile] Photo upload error:', err);
+      Alert.alert('Upload Failed', 'Could not upload photo to server. Tap Save to retry.');
     }
-  }, [user?.id]);
+  }
+};
 
   const handleCancel = () => {
     setForm({

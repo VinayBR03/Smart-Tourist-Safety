@@ -1,6 +1,6 @@
 // src/components/common/Input.tsx
 
-import React, { forwardRef, useState } from 'react';
+import React, { forwardRef, useState, useId } from 'react';
 
 // ─────────────────────────────────────────────
 // Types
@@ -58,7 +58,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const [showPassword, setShowPassword] = useState(false);
     const isPassword = type === 'password';
     const inputType  = isPassword ? (showPassword ? 'text' : 'password') : type;
-    const inputId    = id ?? `input-${Math.random().toString(36).slice(2, 8)}`;
+    const generatedId = useId();
+    const inputId    = id ?? generatedId;
 
     return (
       <div className={fullWidth ? 'w-full' : ''}>
@@ -206,7 +207,8 @@ export function Select({
   id,
   ...props
 }: SelectProps) {
-  const selectId = id ?? `select-${Math.random().toString(36).slice(2, 8)}`;
+  const generatedId = useId();
+  const selectId = id ?? generatedId;
 
   return (
     <div className={fullWidth ? 'w-full' : ''}>
@@ -275,7 +277,8 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
   function Textarea({ label, error, hint, fullWidth = true, className = '', id, ...props }, ref) {
-    const textareaId = id ?? `textarea-${Math.random().toString(36).slice(2, 8)}`;
+    const generatedId = useId();
+    const textareaId = id ?? generatedId;
 
     return (
       <div className={fullWidth ? 'w-full' : ''}>

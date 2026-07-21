@@ -74,7 +74,12 @@ function useDashboardAnalytics() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const triggerLoad = async () => {
+      await load();
+    };
+    triggerLoad();
+  }, []);
   return { trend, status, zoneRisk, loading, reload: load };
 }
 

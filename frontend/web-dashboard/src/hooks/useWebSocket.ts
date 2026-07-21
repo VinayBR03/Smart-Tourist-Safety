@@ -54,7 +54,9 @@ export function useWSEvent<T>(
   enabled = true
 ): void {
   const handlerRef = useRef(handler);
-  handlerRef.current = handler;
+  useEffect(() => {
+    handlerRef.current = handler;
+  });
 
   useEffect(() => {
     if (!enabled) return;
@@ -75,7 +77,9 @@ export function useWSEvents(
   enabled = true
 ): void {
   const handlersRef = useRef(handlers);
-  handlersRef.current = handlers;
+  useEffect(() => {
+    handlersRef.current = handlers;
+  });
 
   useEffect(() => {
     if (!enabled) return;
@@ -211,7 +215,9 @@ export function useAuthorityLiveWS(
     useWSConnectionStatus('authority/live');
 
   const handlersRef = useRef(handlers);
-  handlersRef.current = handlers;
+  useEffect(() => {
+    handlersRef.current = handlers;
+  });
 
   useWSEvents(
     'authority/live',

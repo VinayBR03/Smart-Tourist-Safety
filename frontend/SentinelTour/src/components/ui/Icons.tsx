@@ -1,6 +1,5 @@
 import Svg, {
   Path, Circle, Rect, Line, Polyline, Polygon,
-  G, Defs, LinearGradient, Stop, ClipPath,
 } from 'react-native-svg';
 
 interface IconProps {
@@ -9,19 +8,9 @@ interface IconProps {
   strokeWidth?: number;
 }
 
-const D = (size = 24, color = 'currentColor', sw = 2) => ({
-  size,
-  color,
-  strokeWidth: sw,
-  fill: 'none',
-  stroke: color,
-  strokeLinecap: 'round' as const,
-  strokeLinejoin: 'round' as const,
-});
 
 export const Icon = {
   Home: ({ size = 24, color = '#fff', strokeWidth = 2 }: IconProps) => {
-    const p = D(size, color, strokeWidth);
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
         <Path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>

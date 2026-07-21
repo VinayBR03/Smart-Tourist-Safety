@@ -160,9 +160,9 @@ export default function HomeScreen() {
       if (granted) locationService.startTracking(() => device?.batteryPercentage ?? undefined);
     })();
     return () => locationService.stopTracking();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, device?.batteryPercentage]);
 
-  const onRefresh = useCallback(() => { refetchHealth(); refetchZones(); refetchIncidents(); }, []);
+  const onRefresh = useCallback(() => { refetchHealth(); refetchZones(); refetchIncidents(); }, [refetchHealth, refetchZones, refetchIncidents]);
 
   const firstName     = user?.full_name?.split(' ')[0] ?? 'Tourist';
   const highRiskZones = zones?.filter((z) => z.status?.risk_level === 'HIGH') ?? [];

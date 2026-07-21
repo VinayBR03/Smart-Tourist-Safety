@@ -18,21 +18,7 @@ import { EmptyState }                   from '../../components/common/EmptyState
 
 import { UserRole }                     from '../../types/enums';
 import type { UserAdminResponse }       from '../../types/user';
-
-
-// ─────────────────────────────────────────────
-// Online status helper
-// A user is considered online if their last_activity
-// was within the past 5 minutes.
-// ─────────────────────────────────────────────
-
-const ONLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
-
-export function isOnline(lastActivity: string | null | undefined): boolean {
-  if (!lastActivity) return false;
-  return Date.now() - new Date(lastActivity).getTime() < ONLINE_THRESHOLD_MS;
-}
-
+import { isOnline } from '../../utils/helpers';
 
 // ─────────────────────────────────────────────
 // Hook: admin user list
@@ -56,7 +42,12 @@ function useAdminUsers() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const triggerLoad = async () => {
+      await load();
+    };
+    triggerLoad();
+  }, [load]);
 
   return { users, isLoading, error, refetch: load, setUsers };
 }

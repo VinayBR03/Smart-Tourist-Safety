@@ -6,7 +6,7 @@
 // - Search bar to navigate to any city or landmark
 // - Shows existing zones as reference overlays
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import {
   MapContainer,
   TileLayer,
@@ -19,8 +19,6 @@ import {
 } from 'react-leaflet';
 import type { LatLng } from 'leaflet';
 import {
-  MousePointerClick,
-  Pentagon,
   Trash2,
   Check,
   Info,
@@ -31,7 +29,7 @@ import { MapRecenter }                         from './LeafletMap';
 import { useMapCenter }                        from '../../hooks/useMapCenter';
 import { useIsDark }                           from '../../theme/useTheme';
 import type { ZoneWithStatus }                 from '../../types/zone';
-import { RiskLevel }                           from '../../types/enums';
+//import { RiskLevel }                           from '../../types/enums';
 
 // ─────────────────────────────────────────────
 // Types
@@ -82,11 +80,11 @@ function haversineMeters(a: LatLng, b: LatLng): number {
 // Risk level colour helper
 // ─────────────────────────────────────────────
 
-function riskColor(level: RiskLevel | null): string {
+/*function riskColor(level: RiskLevel | null): string {
   if (level === RiskLevel.HIGH)   return '#ef4444';
   if (level === RiskLevel.MEDIUM) return '#f97316';
   return '#22c55e';
-}
+}*/
 
 // ─────────────────────────────────────────────
 // ExistingZoneLayer — read-only reference overlays

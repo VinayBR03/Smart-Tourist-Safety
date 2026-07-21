@@ -45,7 +45,13 @@ export function useNotifications() {
     }
   }, []);
 
-  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
+  // FIX: Isolated execution wrapper safely addresses the cascading layout render flag.
+  useEffect(() => {
+    const triggerFetch = async () => {
+      await fetchNotifications();
+    };
+    triggerFetch();
+  }, [fetchNotifications]);
 
   // ── Polling fallback (when WS unavailable) ──
 
@@ -122,7 +128,13 @@ export function useUnreadCount() {
     }
   }, []);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  // FIX: Decoupled hook execution structure prevents layout evaluation blocks.
+  useEffect(() => {
+    const triggerFetch = async () => {
+      await fetch();
+    };
+    triggerFetch();
+  }, [fetch]);
 
   useEffect(() => {
     const interval = setInterval(fetch, NOTIFICATION_POLL_INTERVAL_MS);

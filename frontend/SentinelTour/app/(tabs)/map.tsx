@@ -73,7 +73,7 @@ function formatDistance(km: number): string {
 
 // ─── Compute polygon centroid from [lon, lat][] ───────────
 // Used when center_latitude / center_longitude is null in the API response.
-function computeCentroid(coords: Array<[number, number]>): { lat: number; lon: number } | null {
+function computeCentroid(coords: [number, number][]): { lat: number; lon: number } | null {
   if (!coords || coords.length === 0) return null;
   // Use simple average (sufficient for campus-sized polygons)
   const sum = coords.reduce(
@@ -89,30 +89,30 @@ function computeCentroid(coords: Array<[number, number]>): { lat: number; lon: n
 //   b) coordinates: { type: "Polygon", coordinates: [[[lon,lat],...]] } ← GeoJSON
 //   c) coordinates: null                         ← not serialized
 // We normalise all cases to Array<[number,number]> | null.
-function resolveCoordinates(zone: ZoneWithStatus): Array<[number, number]> | null {
+function resolveCoordinates(zone: ZoneWithStatus): [number, number][] | null {
   const raw = zone.geometry as any;
   if (!raw) return null;
 
   // Already a flat array of [lon, lat] pairs
   if (Array.isArray(raw) && raw.length > 0 && Array.isArray(raw[0])) {
-    return raw as Array<[number, number]>;
+    return raw as [number, number][];
   }
 
   // GeoJSON Polygon: { type: "Polygon", coordinates: [ring1, ring2, ...] }
   if (raw?.type === 'Polygon' && Array.isArray(raw.coordinates?.[0])) {
-    return raw.coordinates[0] as Array<[number, number]>;
+    return raw.coordinates[0] as [number, number][];
   }
 
   // GeoJSON MultiPolygon: { type: "MultiPolygon", coordinates: [[ring1], ...] }
   if (raw?.type === 'MultiPolygon' && Array.isArray(raw.coordinates?.[0]?.[0])) {
-    return raw.coordinates[0][0] as Array<[number, number]>;
+    return raw.coordinates[0][0] as [number, number][];
   }
 
   return null;
 }
 
 // ─── Resolve zone center ──────────────────────────────────
-function resolveCenter(zone: ZoneWithStatus, coords: Array<[number, number]> | null) {
+function resolveCenter(zone: ZoneWithStatus, coords: [number, number][] | null) {
   if (zone.center_latitude != null && zone.center_longitude != null) {
     return { lat: zone.center_latitude, lon: zone.center_longitude };
   }
@@ -157,7 +157,7 @@ export default function MapScreen() {
         longitudeDelta: 0.015,
       }, 800);
     }
-  }, [myLocation?.latitude, myLocation?.longitude]);
+  }, [myLocation]);
 
   // ── Nominatim search with proximity bias ──────────────
   const handleSearch = useCallback((text: string) => {

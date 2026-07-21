@@ -28,8 +28,11 @@ export default function SplashPage() {
   const taglineStyle = useAnimatedStyle(() => ({ opacity: taglineOpacity.value }));
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability
     logoOpacity.value    = withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) });
+    // eslint-disable-next-line react-hooks/immutability
     logoScale.value      = withTiming(1, { duration: 700, easing: Easing.out(Easing.back(1.15)) });
+    // eslint-disable-next-line react-hooks/immutability
     taglineOpacity.value = withDelay(500, withTiming(1, { duration: 500 }));
 
     const init = async () => {
@@ -49,7 +52,7 @@ export default function SplashPage() {
       }
     };
     init();
-  }, []);
+  }, [hydrate, logoOpacity, logoScale, setUser, taglineOpacity]);
 
   return (
     <View style={[styles.container, t.bg]}>

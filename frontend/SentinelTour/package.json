@@ -6,6 +6,9 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "lint:table": "eslint . --format table",
     "prebuild": "expo prebuild --clean",
     "build:android": "eas build --platform android --profile preview",
     "build:ios": "eas build --platform ios --profile preview",
@@ -65,10 +68,18 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
     "@types/react": "~19.1.0",
     "@types/react-native-vector-icons": "^6.4.18",
-    "typescript": "~5.9.2"
+    "eslint": "^9.39.1",
+    "eslint-config-expo": "^56.0.4",
+    "eslint-formatter-table": "^7.32.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.48.0"
   },
   "private": true,
+  "type": "module",
   "packageManager": "yarn@4.14.1"
 }

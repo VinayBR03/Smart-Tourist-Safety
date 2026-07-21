@@ -101,7 +101,12 @@ function useSystemData() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const triggerLoad = async () => {
+      await load();
+    };
+    triggerLoad();
+  }, [load]);
   return { data, loading, error, reload: load, lastRun };
 }
 

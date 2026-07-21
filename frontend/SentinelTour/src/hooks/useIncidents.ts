@@ -6,7 +6,6 @@ import type {
   IncidentStatus,
   IncidentSummary,
   IncidentDetail,
-  IncidentTimelineEntry,
 } from '@/types/api';
 
 // ─── List my incidents with optional status filter ────────

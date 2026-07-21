@@ -1,6 +1,5 @@
 import { apiClient } from './client';
 import type { User, UserLanguage } from '@/types/api';
-import type { ChangePasswordPayload } from '@/types/auth';
 
 // Normalise preferred_language to lowercase on every user object
 // because some DB rows have "EN" (uppercase) from earlier registrations

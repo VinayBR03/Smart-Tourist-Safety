@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput,
   TouchableOpacity, ScrollView, KeyboardAvoidingView,
@@ -21,10 +21,10 @@ import { useThemedStyles } from '@/utils/themedStyles';
 import { useColors } from '@/context/ThemeContext';
 import { Icon } from '@/components/ui/Icons';
 
-// ─── Step schemas ─────────────────────────────────────────
+// --- Step schemas -----------------------------------------
 const step1Schema = z.object({
   email:           z.string().email('Enter a valid email address'),
-  password:        z.string().min(8, 'Min 8 chars').regex(/[A-Z]/, 'Needs uppercase').regex(/[a-z]/, 'Needs lowercase').regex(/\d/, 'Needs number').regex(/[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>\/?]/, 'Needs special char'),
+  password:        z.string().min(8, 'Min 8 chars').regex(/[A-Z]/, 'Needs uppercase').regex(/[a-z]/, 'Needs lowercase').regex(/\d/, 'Needs number').regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, 'Needs special char'),
   confirmPassword: z.string(),
 }).refine((d) => d.password === d.confirmPassword, { message: "Passwords don't match", path: ['confirmPassword'] });
 
@@ -70,7 +70,7 @@ const NATIONALITIES = [
   'Uzbek', 'Venezuelan', 'Vietnamese', 'Yemeni', 'Zambian', 'Zimbabwean',
 ];
 
-// ─── Calendar Date Picker ─────────────────────────────────
+// --- Calendar Date Picker ---------------------------------
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS_OF_WEEK = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 
@@ -139,22 +139,22 @@ function CalendarPicker({
             {/* Year row */}
             <View style={styles.calNavRow}>
               <TouchableOpacity style={styles.calNavBtn} onPress={prevYear}>
-                <Text style={[styles.calNavText, { color: C.primary }]}>‹‹</Text>
+                <Text style={[styles.calNavText, { color: C.primary }]}>-</Text>
               </TouchableOpacity>
               <Text style={[styles.calYearText, { color: C.textPrimary }]}>{viewYear}</Text>
               <TouchableOpacity style={styles.calNavBtn} onPress={nextYear}>
-                <Text style={[styles.calNavText, { color: C.primary }]}>››</Text>
+                <Text style={[styles.calNavText, { color: C.primary }]}>+</Text>
               </TouchableOpacity>
             </View>
 
             {/* Month row */}
             <View style={styles.calNavRow}>
               <TouchableOpacity style={styles.calNavBtn} onPress={prevMonth}>
-                <Text style={[styles.calNavText, { color: C.primary }]}>‹</Text>
+                <Text style={[styles.calNavText, { color: C.primary }]}>-</Text>
               </TouchableOpacity>
               <Text style={[styles.calMonthText, { color: C.textPrimary }]}>{MONTHS[viewMonth]}</Text>
               <TouchableOpacity style={styles.calNavBtn} onPress={nextMonth}>
-                <Text style={[styles.calNavText, { color: C.primary }]}>›</Text>
+                <Text style={[styles.calNavText, { color: C.primary }]}>+</Text>
               </TouchableOpacity>
             </View>
 
@@ -205,7 +205,7 @@ function CalendarPicker({
   );
 }
 
-// ─── Nationality Picker ───────────────────────────────────
+// --- Nationality Picker -----------------------------------
 function NationalityPicker({
   visible, value, onChange, onClose,
 }: {
@@ -249,7 +249,7 @@ function NationalityPicker({
                 <Text style={[styles.natItemText, { color: value === item ? C.primary : C.textPrimary }]}>
                   {item}
                 </Text>
-                {value === item && <Text style={{ color: C.primary, fontSize: 16 }}>✓</Text>}
+                {value === item && <Text style={{ color: C.primary, fontSize: 16 }}>*</Text>}
               </TouchableOpacity>
             )}
           />
@@ -259,7 +259,7 @@ function NationalityPicker({
   );
 }
 
-// ─── Shared sub-components ────────────────────────────────
+// --- Shared sub-components --------------------------------
 function StepHeader({ step, title, subtitle }: { step: number; title: string; subtitle: string }) {
   const C = useColors();
   return (
@@ -322,7 +322,7 @@ function ChipSelector({ options, value, onChange }: { options: string[]; value: 
   );
 }
 
-// ─── Step 1 ───────────────────────────────────────────────
+// --- Step 1 -----------------------------------------------
 function Step1Form({ form, showPw, showConfirm, setShowPw, setShowConfirm, onNext }: any) {
   const { control, formState: { errors } } = form;
   const C = useColors();
@@ -354,10 +354,10 @@ function Step1Form({ form, showPw, showConfirm, setShowPw, setShowConfirm, onNex
             <InputBox value={value} onChange={onChange} onBlur={onBlur} placeholder="Repeat your password"
               secureTextEntry={!showConfirm} error={!!errors.confirmPassword}
               rightEl={<TouchableOpacity
-                          onPress={() => setShowPw((p:boolean) => !p)}
+                          onPress={() => setShowConfirm((p:boolean) => !p)}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Icon.Eye size={20} color={C.textMuted} showPw={showPw} />
+                          <Icon.Eye size={20} color={C.textMuted} showPw={showConfirm} />
                         </TouchableOpacity>}
             />
           )} />
@@ -370,14 +370,12 @@ function Step1Form({ form, showPw, showConfirm, setShowPw, setShowConfirm, onNex
   );
 }
 
-// ─── Step 2 ───────────────────────────────────────────────
+// --- Step 2 -----------------------------------------------
 function Step2Form({ form, onNext }: { form: any; onNext: () => void }) {
-  const { control, formState: { errors }, setValue, watch } = form;
+  const { control, formState: { errors } } = form;
   const C = useColors();
   const [showCal, setShowCal]  = useState(false);
   const [showNat, setShowNat]  = useState(false);
-  const dobValue  = watch('date_of_birth') ?? '';
-  const natValue  = watch('nationality')   ?? '';
 
   return (
     <View style={styles.formBody}>
@@ -402,7 +400,7 @@ function Step2Form({ form, onNext }: { form: any; onNext: () => void }) {
           )} />
       </Field>
 
-      {/* Date of Birth — Calendar */}
+      {/* Date of Birth -- Calendar */}
       <Field label="Date of Birth" error={errors.date_of_birth?.message}>
         <Controller control={control} name="date_of_birth" defaultValue=""
           render={({ field: { onChange, value } }) => (
@@ -427,7 +425,7 @@ function Step2Form({ form, onNext }: { form: any; onNext: () => void }) {
           )} />
       </Field>
 
-      {/* Nationality — Dropdown */}
+      {/* Nationality -- Dropdown */}
       <Field label="Nationality" error={errors.nationality?.message}>
         <Controller control={control} name="nationality" defaultValue=""
           render={({ field: { onChange, value } }) => (
@@ -460,9 +458,11 @@ function Step2Form({ form, onNext }: { form: any; onNext: () => void }) {
   );
 }
 
-// ─── Step 3 ───────────────────────────────────────────────
+// --- Step 3 -----------------------------------------------
 function Step3Form({ form, loading, onSubmit }: { form: any; loading: boolean; onSubmit: () => void }) {
   const { control, formState: { errors } } = form;
+  const C = useColors(); 
+  
   return (
     <View style={styles.formBody}>
       <Field label="Emergency Contact Number" error={errors.emergency_contact?.message}>
@@ -479,9 +479,7 @@ function Step3Form({ form, loading, onSubmit }: { form: any; loading: boolean; o
       </Field>
       <Field label="Medical Conditions (optional)" error={errors.medical_conditions?.message}>
         <Controller control={control} name="medical_conditions" defaultValue=""
-          render={({ field: { onChange, value, onBlur } }) => {
-            const C = useColors();
-            return (
+          render={({ field: { onChange, value, onBlur } }) => (
               <View style={[styles.inputWrapper, { backgroundColor: C.surface, borderColor: C.border, height: 88, alignItems: 'flex-start', paddingTop: Spacing.sm }]}>
                 <TextInput
                   style={[styles.input, { color: C.textPrimary, textAlignVertical: 'top' }]}
@@ -490,14 +488,11 @@ function Step3Form({ form, loading, onSubmit }: { form: any; loading: boolean; o
                   multiline numberOfLines={3} autoCapitalize="sentences"
                 />
               </View>
-            );
-          }} />
+          )} />
       </Field>
       <Field label="Allergies (optional)" error={errors.allergies?.message}>
         <Controller control={control} name="allergies" defaultValue=""
-          render={({ field: { onChange, value, onBlur } }) => {
-            const C = useColors();
-            return (
+          render={({ field: { onChange, value, onBlur } }) => (
               <View style={[styles.inputWrapper, { backgroundColor: C.surface, borderColor: C.border, height: 88, alignItems: 'flex-start', paddingTop: Spacing.sm }]}>
                 <TextInput
                   style={[styles.input, { color: C.textPrimary, textAlignVertical: 'top' }]}
@@ -506,8 +501,7 @@ function Step3Form({ form, loading, onSubmit }: { form: any; loading: boolean; o
                   multiline numberOfLines={3} autoCapitalize="sentences"
                 />
               </View>
-            );
-          }} />
+          )} />
       </Field>
       <TouchableOpacity
         style={[styles.nextBtn, loading && { opacity: 0.6 }]}
@@ -519,7 +513,7 @@ function Step3Form({ form, loading, onSubmit }: { form: any; loading: boolean; o
   );
 }
 
-// ─── Main Screen ──────────────────────────────────────────
+// --- Main Screen ------------------------------------------
 export default function RegisterScreen() {
   const t = useThemedStyles();
   const { language } = useLocalSearchParams<{ language: UserLanguage }>();
@@ -587,7 +581,7 @@ export default function RegisterScreen() {
               <View key={s} style={styles.stepItem}>
                 <View style={[styles.stepDot, i <= step && styles.stepDotActive, i < step && styles.stepDotDone]}>
                   {i < step
-                    ? <Text style={styles.stepCheck}>✓</Text>
+                    ? <Text style={styles.stepCheck}>*</Text>
                     : <Text style={[styles.stepNum, i === step && styles.stepNumActive]}>{i + 1}</Text>
                   }
                 </View>

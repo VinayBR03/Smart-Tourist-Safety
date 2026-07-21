@@ -3,7 +3,6 @@
 import { BleManager, Device, State } from 'react-native-ble-plx';
 import { Platform, PermissionsAndroid }  from 'react-native';
 import { Buffer } from 'buffer';
-import NetInfo from '@react-native-community/netinfo';
 import { Config }           from '@/constants/config';
 import { useDeviceStore }   from '@/store/deviceStore';
 import { devicesApi }       from '@/api/devices';

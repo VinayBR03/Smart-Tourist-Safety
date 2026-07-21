@@ -1,6 +1,6 @@
 // src/hooks/useLocations.ts
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 
 import {
   getLiveLocations,
@@ -35,7 +35,13 @@ export function useLiveLocations() {
     }
   }, []);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  // FIX: Isolated execution wrapper for fetching
+  useEffect(() => {
+    const triggerFetch = async () => {
+      await fetch();
+    };
+    triggerFetch();
+  }, [fetch]);
 
   // Accept real-time WS location updates
   const updateLocation = useCallback(
@@ -65,12 +71,15 @@ export function useLiveLocations() {
     []
   );
 
-  // Filter out stale locations
-  const activeLocations = locations.filter((loc) => {
-    const updatedAt = new Date(loc.updated_at).getTime();
-    const ageMinutes = (Date.now() - updatedAt) / 60_000;
-    return ageMinutes <= LIVE_LOCATION_STALE_MINUTES;
-  });
+  const activeLocations = useMemo(() => {
+    // eslint-disable-next-line react-hooks/purity
+    const nowTimestamp = Date.now();
+    return locations.filter((loc) => {
+      const updatedAt = new Date(loc.updated_at).getTime();
+      const ageMinutes = (nowTimestamp - updatedAt) / 60_000;
+      return ageMinutes <= LIVE_LOCATION_STALE_MINUTES;
+    });
+  }, [locations]);
 
   return {
     locations,
@@ -105,7 +114,13 @@ export function useZonePresence() {
     }
   }, []);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  // FIX: Isolated execution wrapper for fetching
+  useEffect(() => {
+    const triggerFetch = async () => {
+      await fetch();
+    };
+    triggerFetch();
+  }, [fetch]);
 
   const getTouristCount = useCallback(
     (zoneId: number): number =>

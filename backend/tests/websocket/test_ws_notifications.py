@@ -11,6 +11,17 @@ def build_ws_url(path: str, token: str):
     return f"{path}?token={token}"
 
 
+def get_next_real_message(ws):
+    """
+    Helper function to consume messages from a WebSocket 
+    until a non-ping payload is received.
+    """
+    while True:
+        msg = ws.receive_json()
+        if msg.get("type") != "ping":
+            return msg
+
+
 # =========================================================
 # User Receives Direct Notification
 # =========================================================
@@ -44,7 +55,7 @@ def test_user_receives_notification(client, create_user):
             )
         )
 
-        received = websocket.receive_json()
+        received = get_next_real_message(websocket)
 
         assert received["type"] == "notification.created"
         assert received["data"]["msg"] == "Hello"
@@ -97,12 +108,17 @@ def test_notification_isolation_between_users(client, create_user):
             )
 
             # user1 receives
-            received = ws1.receive_json()
+            received = get_next_real_message(ws1)
             assert received["data"]["msg"] == "Private"
 
-            # user2 should not receive
+            # user2 should not receive anything besides a potential initial ping
             with pytest.raises(Exception):
-                ws2.receive_json(timeout=0.2)
+                # We loop in case user2 receives multiple system frames/pings, 
+                # but should time out before getting the "Private" message.
+                while True:
+                    msg = ws2.receive_json(timeout=0.2)
+                    if msg.get("type") != "ping":
+                        break
 
 
 # =========================================================
@@ -139,8 +155,8 @@ def test_user_multi_device_support(client, create_user):
                 )
             )
 
-            received1 = ws1.receive_json()
-            received2 = ws2.receive_json()
+            received1 = get_next_real_message(ws1)
+            received2 = get_next_real_message(ws2)
 
             assert received1["data"]["msg"] == "Sync"
             assert received2["data"]["msg"] == "Sync"

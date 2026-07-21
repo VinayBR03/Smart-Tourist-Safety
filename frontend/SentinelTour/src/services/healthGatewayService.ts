@@ -146,7 +146,7 @@ export async function uploadHealthFromBle(data: BleHealthPayload): Promise<void>
       console.warn(`[GW] AUTO-SOS — ${streak} consecutive alert readings — triggering SOS`);
 
       try {
-        await uploadSosFromBle(data.bat ?? 0);
+        await uploadSosFromBle();
       } catch (err) {
         console.error('[GW] Auto-SOS upload failed:', err);
       }
@@ -157,7 +157,7 @@ export async function uploadHealthFromBle(data: BleHealthPayload): Promise<void>
 // ─────────────────────────────────────────────────────────────────────────────
 // Upload SOS received over BLE (also called by auto-SOS escalation)
 // ─────────────────────────────────────────────────────────────────────────────
-export async function uploadSosFromBle(bat: number): Promise<void> {
+export async function uploadSosFromBle(): Promise<void> {
   const online = await hasInternetConnection();
   if (!online) return;
 

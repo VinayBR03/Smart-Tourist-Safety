@@ -1,8 +1,21 @@
 // src/theme/useTheme.ts
 
-import { useContext } from 'react';
-import { ThemeContext } from './ThemeProvider';
-import type { ThemeContextValue } from './ThemeProvider';
+import { createContext, useContext } from 'react';
+import type { Theme, ThemeMode } from './themes';
+
+// ─────────────────────────────────────────────
+// Context Setup
+// ─────────────────────────────────────────────
+
+export interface ThemeContextValue {
+  theme:       Theme;
+  mode:        ThemeMode;
+  isDark:      boolean;
+  toggleTheme: () => void;
+  setTheme:    (mode: ThemeMode) => void;
+}
+
+export const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 // ─────────────────────────────────────────────
 // Primary hook

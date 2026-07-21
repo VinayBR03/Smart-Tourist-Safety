@@ -64,7 +64,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     hydrateTheme().finally(() => setThemeReady(true));
-  }, []);
+  }, [hydrateTheme]);
 
   useEffect(() => {
     if (fontsLoaded && themeReady) SplashScreen.hideAsync();

@@ -1,7 +1,6 @@
-# tests/test_api_routes.py
-
 from fastapi.testclient import TestClient
 from main import app
+from api.routes import verify_internal_token
 
 
 class DummyEngine:
@@ -23,16 +22,16 @@ class DummyEngine:
 
 
 def test_predict_route(monkeypatch):
-
     monkeypatch.setattr(
         "api.routes.ai_engine",
         DummyEngine()
     )
-
+    
+    app.dependency_overrides[verify_internal_token] = lambda: None
     client = TestClient(app)
-
     response = client.post(
         "/predict",
+        headers={"Authorization": "Bearer mock-test-token-value"},
         json={
             "domain": "zone",
             "features": {
@@ -44,11 +43,11 @@ def test_predict_route(monkeypatch):
             }
         }
     )
+    app.dependency_overrides.clear()
 
     assert response.status_code == 200
 
     data = response.json()
-
     assert data["status"] == "success"
     assert data["domain"] == "zone"
     assert 0 <= data["prediction"]["risk_score"] <= 1

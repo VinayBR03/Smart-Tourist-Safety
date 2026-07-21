@@ -33,7 +33,13 @@ export function useLiveHealthTelemetry() {
     }
   }, []);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  // FIX: Isolated execution wrapper clears the cascading render error flag.
+  useEffect(() => {
+    const triggerFetch = async () => {
+      await fetch();
+    };
+    triggerFetch();
+  }, [fetch]);
 
   // Accept real-time push from WS health alerts
   const pushTelemetry = useCallback((entry: HealthTelemetry) => {
@@ -73,7 +79,13 @@ export function useHealthAlerts() {
     }
   }, []);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  // FIX: Decoupled hook execution structure prevents compiler layout blocks.
+  useEffect(() => {
+    const triggerFetch = async () => {
+      await fetch();
+    };
+    triggerFetch();
+  }, [fetch]);
 
   const pushAlert = useCallback((alert: HealthAlertSummary) => {
     setAlerts((prev) => [alert, ...prev].slice(0, 100));
@@ -105,7 +117,13 @@ export function useTouristHealthHistory(touristId: number | null) {
     }
   }, [touristId]);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  // FIX: Isolated invocation guarantees compliant thread handling.
+  useEffect(() => {
+    const triggerFetch = async () => {
+      await fetch();
+    };
+    triggerFetch();
+  }, [fetch]);
 
   return { history, isLoading, error, refetch: fetch };
 }

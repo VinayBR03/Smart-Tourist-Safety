@@ -1,5 +1,5 @@
 // src/api/client.ts
-import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig, create } from 'axios';
 import { Config } from '@/constants/config';
 import { SecureStorage } from '@/utils/storage';
 import { logoutFlag } from '@/api/logoutFlag';
@@ -9,10 +9,10 @@ import { logoutFlag } from '@/api/logoutFlag';
 export { logoutFlag };
 
 let isRefreshing = false;
-let failedQueue: Array<{
+let failedQueue: {
   resolve: (token: string) => void;
   reject:  (err: unknown)  => void;
-}> = [];
+}[] = [];
 
 const processQueue = (error: unknown, token: string | null) => {
   failedQueue.forEach((p) => (error ? p.reject(error) : p.resolve(token!)));
@@ -21,7 +21,7 @@ const processQueue = (error: unknown, token: string | null) => {
 
 const AUTH_ROUTES = ['/auth/login', '/auth/refresh', '/auth/logout', '/auth/register'];
 
-export const apiClient: AxiosInstance = axios.create({
+export const apiClient: AxiosInstance = create({
   baseURL: Config.API_BASE_URL,
   timeout: 15_000,
   headers: { 'Content-Type': 'application/json', Accept: 'application/json' },

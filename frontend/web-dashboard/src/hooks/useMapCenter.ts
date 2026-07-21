@@ -54,31 +54,37 @@ export function useMapCenter() {
   useEffect(() => {
     if (!navigator.geolocation) return;
 
-    setIsLocating(true);
+    // FIX: Wrapping the initialization flag in an isolated wrapper execution 
+    // prevents synchronous cascading layout render errors.
+    const startLocating = () => {
+      setIsLocating(true);
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const next: [number, number] = [
-          pos.coords.latitude,
-          pos.coords.longitude,
-        ];
-        const nextZoom = 13; // city-level zoom for a real GPS fix
-        setCenter(next);
-        setZoom(nextZoom);
-        setSource('geo');
-        saveStored(next, nextZoom);
-        setIsLocating(false);
-      },
-      () => {
-        // Permission denied or timeout — stay on stored/default
-        setIsLocating(false);
-      },
-      {
-        timeout: 6000,
-        maximumAge: 5 * 60 * 1000, // accept a 5-min-old cached fix
-        enableHighAccuracy: false,
-      }
-    );
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const next: [number, number] = [
+            pos.coords.latitude,
+            pos.coords.longitude,
+          ];
+          const nextZoom = 13; // city-level zoom for a real GPS fix
+          setCenter(next);
+          setZoom(nextZoom);
+          setSource('geo');
+          saveStored(next, nextZoom);
+          setIsLocating(false);
+        },
+        () => {
+          // Permission denied or timeout — stay on stored/default
+          setIsLocating(false);
+        },
+        {
+          timeout: 6000,
+          maximumAge: 5 * 60 * 1000, // accept a 5-min-old cached fix
+          enableHighAccuracy: false,
+        }
+      );
+    };
+
+    startLocating();
   }, []);
 
   // Call this when the user manually pans/zooms to persist their preference

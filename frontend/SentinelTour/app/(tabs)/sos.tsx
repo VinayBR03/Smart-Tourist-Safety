@@ -80,7 +80,7 @@ function SOSButton({ state, onPressIn, onPressOut }: {
       progress.value   = withTiming(0, { duration: 200 });
       innerScale.value = withSpring(1);
     }
-  }, [state]);
+  }, [state, outerScale, outerOpacity, innerScale, progress]);
 
   const outerStyle = useAnimatedStyle(() => ({
     transform: [{ scale: outerScale.value }],
@@ -154,7 +154,11 @@ function uploadViaXHR(fileUri: string, presignedUrl: string, contentType: string
     xhr.setRequestHeader('Content-Type', contentType);
     xhr.onreadystatechange = () => {
       if (xhr.readyState !== 4) return;
-      xhr.status === 200 ? resolve() : reject(new Error(`S3 upload status: ${xhr.status}`));
+      if (xhr.status === 200) {
+        resolve();
+      } else {
+        reject(new Error(`S3 upload status: ${xhr.status}`));
+      }
     };
     xhr.onerror = () => reject(new Error('XHR network error'));
     xhr.send({ uri: fileUri, type: contentType, name: 'upload' } as any);

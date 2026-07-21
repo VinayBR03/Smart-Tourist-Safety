@@ -30,7 +30,7 @@ const LANGUAGES: { code: UserLanguage; label: string; native: string }[] = [
   { code: 'ml', label: 'Malayalam', native: 'മലയാളം'   },
 ];
 
-// ─── Helper components with useColors() ──────────────────
+// --- Helper components with useColors() ------------------
 
 function SettingRow({ icon, label, subtitle, onPress, danger, rightEl }: {
   icon: React.ReactNode; label: string; subtitle?: string;
@@ -65,6 +65,7 @@ function RowDivider() {
 
 function ChangePasswordSheet({ onClose }: { onClose: () => void }) {
   const C = useColors();
+  const { t } = useTranslation();
   const [current, setCurrent] = useState('');
   const [next,    setNext]    = useState('');
   const [confirm, setConfirm] = useState('');
@@ -72,18 +73,18 @@ function ChangePasswordSheet({ onClose }: { onClose: () => void }) {
 
   const mutation = useMutation({
     mutationFn: () => authApi.changePassword(current, next, confirm),
-    onSuccess: () => { Alert.alert('Password Changed', 'Your password has been updated successfully.'); onClose(); },
-    onError: (err: any) => { Alert.alert('Error', err?.response?.data?.detail ?? 'Could not change password.'); },
+    onSuccess: () => { Alert.alert(t('passwordChanged') ?? 'Password Changed', t('passwordChangedSuccess') ?? 'Your password has been updated successfully.'); onClose(); },
+    onError: (err: any) => { Alert.alert(t('error') ?? 'Error', err?.response?.data?.detail ?? t('passwordChangeError') ?? 'Could not change password.'); },
   });
 
   return (
     <View style={[styles.sheet, { backgroundColor: C.surfaceAlt, borderColor: C.border }]}>
       <View style={[styles.sheetHandle, { backgroundColor: C.border }]} />
-      <Text style={[styles.sheetTitle, { color: C.textPrimary }]}>Change Password</Text>
+      <Text style={[styles.sheetTitle, { color: C.textPrimary }]}>{t('changePassword') ?? 'Change Password'}</Text>
       {[
-        { label: 'Current Password', value: current, onChange: setCurrent },
-        { label: 'New Password',     value: next,    onChange: setNext    },
-        { label: 'Confirm Password', value: confirm, onChange: setConfirm },
+        { label: t('currentPassword') ?? 'Current Password', value: current, onChange: setCurrent },
+        { label: t('newPassword') ?? 'New Password',     value: next,    onChange: setNext    },
+        { label: t('confirmPassword') ?? 'Confirm Password', value: confirm, onChange: setConfirm },
       ].map((f) => (
         <View key={f.label} style={styles.sheetField}>
           <Text style={[styles.sheetFieldLabel, { color: C.textSecondary }]}>{f.label}</Text>
@@ -100,15 +101,15 @@ function ChangePasswordSheet({ onClose }: { onClose: () => void }) {
       ))}
       <TouchableOpacity onPress={() => setShowAll((p) => !p)} style={styles.showPwToggle}>
         <Icon.Lock size={14} color={C.textMuted} />
-        <Text style={[styles.showPwText, { color: C.textMuted }]}>{showAll ? 'Hide' : 'Show'} passwords</Text>
+        <Text style={[styles.showPwText, { color: C.textMuted }]}>{showAll ? (t('hide') ?? 'Hide') : (t('show') ?? 'Show')} {t('passwords') ?? 'passwords'}</Text>
       </TouchableOpacity>
       <View style={styles.sheetActions}>
         <TouchableOpacity style={[styles.sheetCancelBtn, { borderColor: C.border }]} onPress={onClose}>
-          <Text style={[styles.sheetCancelText, { color: C.textSecondary }]}>Cancel</Text>
+          <Text style={[styles.sheetCancelText, { color: C.textSecondary }]}>{t('cancel') ?? 'Cancel'}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.sheetSubmitBtn, mutation.isPending && styles.btnDisabled]}
           onPress={() => mutation.mutate()} disabled={mutation.isPending}>
-          {mutation.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.sheetSubmitText}>Update Password</Text>}
+          {mutation.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.sheetSubmitText}>{t('updatePassword') ?? 'Update Password'}</Text>}
         </TouchableOpacity>
       </View>
     </View>
@@ -136,7 +137,7 @@ function LanguagePicker({ current, onSelect }: { current: UserLanguage; onSelect
   );
 }
 
-// ─── Main screen ──────────────────────────────────────────
+// --- Main screen ------------------------------------------
 export default function SettingsScreen() {
   const { t: i18nT } = useTranslation();
   const t = useThemedStyles();
@@ -161,14 +162,14 @@ export default function SettingsScreen() {
       setShowLangPicker(false);
     },
     onError: (err: any) => {
-      Alert.alert('Error', `Could not update language: ${err?.response?.data?.detail ?? err?.message}`);
+      Alert.alert(i18nT('error') ?? 'Error', `${i18nT('langUpdateError') ?? 'Could not update language:'} ${err?.response?.data?.detail ?? err?.message}`);
     },
   });
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive',
+    Alert.alert(i18nT('logout') ?? 'Logout', i18nT('logoutConfirm') ?? 'Are you sure you want to log out?', [
+      { text: i18nT('cancel') ?? 'Cancel', style: 'cancel' },
+      { text: i18nT('logout') ?? 'Logout', style: 'destructive',
         onPress: async () => {
           wsClient.disconnect(); queryClient.clear();
           await logout(); router.replace('/(auth)/login');
@@ -178,14 +179,14 @@ export default function SettingsScreen() {
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert('Delete Account', 'This will schedule your account for deletion. You have 30 days to cancel. Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive',
+    Alert.alert(i18nT('deleteAccount') ?? 'Delete Account', i18nT('deleteAccountConfirm') ?? 'This will schedule your account for deletion. You have 30 days to cancel. Are you sure?', [
+      { text: i18nT('cancel') ?? 'Cancel', style: 'cancel' },
+      { text: i18nT('delete') ?? 'Delete', style: 'destructive',
         onPress: async () => {
           try {
-            await authApi.updateProfile({} as any);
-            Alert.alert('Deletion Requested', 'Your account is scheduled for deletion in 30 days.');
-          } catch { Alert.alert('Error', 'Could not request account deletion.'); }
+            await authApi.updateProfile({} as any); // Assuming this is how your backend marks it
+            Alert.alert(i18nT('deletionRequested') ?? 'Deletion Requested', i18nT('deletionRequestedMsg') ?? 'Your account is scheduled for deletion in 30 days.');
+          } catch { Alert.alert(i18nT('error') ?? 'Error', i18nT('deleteAccountError') ?? 'Could not request account deletion.'); }
         },
       },
     ]);
@@ -193,7 +194,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.background }}>
-      <Header title="Settings" showBack />
+      <Header title={i18nT('settings') ?? 'Settings'} showBack />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* Profile card */}
@@ -201,9 +202,9 @@ export default function SettingsScreen() {
           <TouchableOpacity style={[styles.profileCard, t.surfaceAlt, t.border]} onPress={() => router.push('/profile?edit=true')} activeOpacity={0.8}>
             <Avatar name={user?.full_name} size={56} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.profileName, t.textPrimary]}>{user?.full_name ?? 'Tourist'}</Text>
+              <Text style={[styles.profileName, t.textPrimary]}>{user?.full_name ?? i18nT('tourist') ?? 'Tourist'}</Text>
               <Text style={[styles.profileEmail, t.textMuted]}>{user?.email}</Text>
-              <Text style={[styles.profileEdit, { color: C.primary }]}>Tap to edit profile</Text>
+              <Text style={[styles.profileEdit, { color: C.primary }]}>{i18nT('tapToEditProfile') ?? 'Tap to edit profile'}</Text>
             </View>
             <Icon.Edit size={18} color={C.primary} />
           </TouchableOpacity>
@@ -211,12 +212,12 @@ export default function SettingsScreen() {
 
         {/* Appearance */}
         <Animated.View entering={FadeInDown.duration(400).delay(40)}>
-          <SectionHeader title="Appearance" />
+          <SectionHeader title={i18nT('appearance') ?? 'Appearance'} />
           <Card>
             <SettingRow
               icon={theme === 'dark' ? <Icon.Moon size={20} color={C.primary} /> : <Icon.Sun size={20} color="#F59E0B" />}
-              label={theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
-              subtitle={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              label={theme === 'dark' ? (i18nT('darkMode') ?? 'Dark Mode') : (i18nT('lightMode') ?? 'Light Mode')}
+              subtitle={theme === 'dark' ? (i18nT('switchToLight') ?? 'Switch to light theme') : (i18nT('switchToDark') ?? 'Switch to dark theme')}
               rightEl={
                 <Switch value={theme === 'dark'} onValueChange={toggleTheme}
                   trackColor={{ false: C.border, true: 'rgba(59,130,246,0.4)' }}
@@ -229,11 +230,11 @@ export default function SettingsScreen() {
 
         {/* Language */}
         <Animated.View entering={FadeInDown.duration(400).delay(80)}>
-          <SectionHeader title="Language" />
+          <SectionHeader title={i18nT('language') ?? 'Language'} />
           <Card>
             <SettingRow
               icon={<Icon.Globe size={20} color={C.primary} />}
-              label="App Language"
+              label={i18nT('appLanguage') ?? 'App Language'}
               subtitle={LANGUAGES.find((l) => l.code === currentLang)?.native ?? 'English'}
               onPress={() => setShowLangPicker((p) => !p)}
               rightEl={
@@ -256,9 +257,9 @@ export default function SettingsScreen() {
 
         {/* Security */}
         <Animated.View entering={FadeInDown.duration(400).delay(120)}>
-          <SectionHeader title="Security" />
+          <SectionHeader title={i18nT('security') ?? 'Security'} />
           <Card>
-            <SettingRow icon={<Icon.Lock size={20} color={C.primary} />} label="Change Password" subtitle="Update your account password" onPress={() => setShowChangePw((p) => !p)} />
+            <SettingRow icon={<Icon.Lock size={20} color={C.primary} />} label={i18nT('changePassword') ?? 'Change Password'} subtitle={i18nT('updatePasswordDesc') ?? 'Update your account password'} onPress={() => setShowChangePw((p) => !p)} />
           </Card>
           {showChangePw && (
             <Animated.View entering={FadeInDown.duration(300)}>
@@ -269,21 +270,21 @@ export default function SettingsScreen() {
 
         {/* About */}
         <Animated.View entering={FadeInDown.duration(400).delay(160)}>
-          <SectionHeader title="About" />
+          <SectionHeader title={i18nT('about') ?? 'About'} />
           <Card>
-            <SettingRow icon={<Icon.Shield size={20} color={C.accent} />} label="Sentinel Tour" subtitle="Version 1.0.0 · Tourist Safety System" rightEl={<View />} />
+            <SettingRow icon={<Icon.Shield size={20} color={C.accent} />} label="Sentinel Tour" subtitle={`Version 1.0.0 · ${i18nT('touristSafetySystem') ?? 'Tourist Safety System'}`} rightEl={<View />} />
             <RowDivider />
-            <SettingRow icon={<Icon.Info size={20} color={C.textMuted} />} label="User ID" subtitle={user?.id ? `${user.id}` : '—'} rightEl={<View />} />
+            <SettingRow icon={<Icon.Info size={20} color={C.textMuted} />} label={i18nT('userId') ?? 'User ID'} subtitle={user?.id ? `${user.id}` : '—'} rightEl={<View />} />
           </Card>
         </Animated.View>
 
         {/* Account / danger */}
         <Animated.View entering={FadeInDown.duration(400).delay(200)}>
-          <SectionHeader title="Account" />
+          <SectionHeader title={i18nT('account') ?? 'Account'} />
           <Card>
-            <SettingRow icon={<Icon.LogOut size={20} color={C.error} />} label="Logout" subtitle="Sign out of your account" onPress={handleLogout} danger />
+            <SettingRow icon={<Icon.LogOut size={20} color={C.error} />} label={i18nT('logout') ?? 'Logout'} subtitle={i18nT('signOutDesc') ?? 'Sign out of your account'} onPress={handleLogout} danger />
             <RowDivider />
-            <SettingRow icon={<Icon.Trash size={20} color={C.error} />} label="Delete Account" subtitle="Permanently remove your data" onPress={handleDeleteAccount} danger />
+            <SettingRow icon={<Icon.Trash size={20} color={C.error} />} label={i18nT('deleteAccount') ?? 'Delete Account'} subtitle={i18nT('deleteAccountDesc') ?? 'Permanently remove your data'} onPress={handleDeleteAccount} danger />
           </Card>
         </Animated.View>
 

@@ -48,12 +48,18 @@ export default function LoginScreen() {
     resolver: zodResolver(schema),
   });
 
+  const [shakeAnimation] = useState(() => ({
+    trigger: () => {
+      shakeX.value = withSequence(
+        withTiming(-10, { duration: 55 }), withTiming(10, { duration: 55 }),
+        withTiming(-8,  { duration: 55 }), withTiming(8,  { duration: 55 }),
+        withTiming(0,   { duration: 55 })
+      );
+    }
+  }));
+
   const triggerShake = () => {
-    shakeX.value = withSequence(
-      withTiming(-10, { duration: 55 }), withTiming(10, { duration: 55 }),
-      withTiming(-8,  { duration: 55 }), withTiming(8,  { duration: 55 }),
-      withTiming(0,   { duration: 55 })
-    );
+    shakeAnimation.trigger();
   };
 
   const onSubmit = async (data: FormData) => {

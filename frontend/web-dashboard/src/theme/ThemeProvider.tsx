@@ -1,7 +1,6 @@
 // src/theme/ThemeProvider.tsx
 
 import React, {
-  createContext,
   useCallback,
   useEffect,
   useMemo,
@@ -10,21 +9,15 @@ import React, {
 
 import { STORAGE_KEYS } from '../constants/storage';
 import { themes } from './themes';
-import type { Theme, ThemeMode } from './themes';
+import type { ThemeMode } from './themes';
+import { ThemeContext } from './useTheme';
+import type { ThemeContextValue } from './useTheme';
 
 // ─────────────────────────────────────────────
 // Context type
 // ─────────────────────────────────────────────
 
-export interface ThemeContextValue {
-  theme:      Theme;
-  mode:       ThemeMode;
-  isDark:     boolean;
-  toggleTheme: () => void;
-  setTheme:   (mode: ThemeMode) => void;
-}
 
-export const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 // ─────────────────────────────────────────────
 // Helpers

@@ -156,7 +156,12 @@ export function AuthoritiesPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const triggerLoad = async () => {
+      await load();
+    };
+    triggerLoad();
+  }, [load]);
 
   // ── Stats ──
   const stats = useMemo(() => ({

@@ -125,7 +125,7 @@ export default function NotificationsScreen() {
     await Promise.allSettled(unread.map((n) => notificationsApi.markRead(n.id)));
     queryClient.invalidateQueries({ queryKey: ['notifications'] });
     setUnreadCount(0);
-  }, [notifications]);
+  }, [notifications, queryClient, setUnreadCount]);
 
   const filtered    = filter === 'unread' ? notifications.filter((n) => n.status !== 'READ') : notifications;
   const groups      = groupByDate(filtered);
@@ -177,7 +177,7 @@ export default function NotificationsScreen() {
       ) : (
         <FlatList
           data={flatData}
-          keyExtractor={(item, i) => item.type === 'header' ? `h-${item.title}` : `n-${item.data.id}`}
+          keyExtractor={(item) => item.type === 'header' ? `h-${item.title}` : `n-${item.data.id}`}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#3B82F6" colors={['#3B82F6']} />}

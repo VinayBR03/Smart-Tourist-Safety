@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Image, Linking,
@@ -14,7 +13,7 @@ import { incidentsApi } from '@/api/incidents';
 import { mediaApi } from '@/api/media';
 import { Typography, Spacing, Radius } from '@/constants/theme';
 import { format, formatDistanceToNow } from 'date-fns';
-import type { IncidentStatus, IncidentTimelineEntry, MediaResponse } from '@/types/api';
+import type { IncidentStatus, IncidentTimelineEntry } from '@/types/api';
 import { useThemedStyles } from '@/utils/themedStyles';
 import { useColors } from '@/context/ThemeContext';
 

@@ -4,10 +4,10 @@ const protocol=window.location.protocol;
 const wsProtocol=protocol === 'https:' ? 'wss:' : 'ws:';
 
 export const API_BASE_URL =
-  `${protocol}//${host}/api` || 'http://localhost:8000';
+  `${protocol}//${host}/api`;
 
 export const WS_BASE_URL =
-  `${wsProtocol}//${host}/ws` || 'ws://localhost:8000';
+  `${wsProtocol}//${host}/ws`;
 
 export const APP_NAME = 'SafeTrack Dashboard';
 export const APP_VERSION = '1.0.0';

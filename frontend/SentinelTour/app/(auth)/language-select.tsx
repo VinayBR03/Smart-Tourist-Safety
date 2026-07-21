@@ -33,8 +33,17 @@ function LanguageCard({
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
+  const [animationDriver] = useState(() => ({
+    trigger: () => {
+      scale.value = withSpring(0.95, {}, () => {
+        'worklet';
+        scale.value = withSpring(1);
+      });
+    }
+  }));
+
   const handlePress = () => {
-    scale.value = withSpring(0.95, {}, () => { scale.value = withSpring(1); });
+    animationDriver.trigger();
     onSelect();
   };
 

@@ -53,7 +53,7 @@ function ScanningAnimation() {
       scale2.value = withRepeat(withTiming(2.2, { duration: 1800, easing: Easing.out(Easing.ease) }), -1, false);
       op2.value    = withRepeat(withTiming(0,   { duration: 1800, easing: Easing.out(Easing.ease) }), -1, false);
     }, 600);
-  }, []);
+  }, [scale1, op1, scale2, op2]);
   const ring1Style = useAnimatedStyle(() => ({ transform: [{ scale: scale1.value }], opacity: op1.value }));
   const ring2Style = useAnimatedStyle(() => ({ transform: [{ scale: scale2.value }], opacity: op2.value }));
   return (

@@ -5,17 +5,6 @@ export type AppTheme = 'dark' | 'light';
 
 const THEME_KEY = 'sentinel_app_theme';
 
-// Synchronous read on first load — SecureStore.getItem is sync in newer Expo
-function loadThemeSync(): AppTheme {
-  try {
-    // expo-secure-store does not have a sync API on all platforms.
-    // We default to dark and let the async loader correct it on mount.
-    return 'dark';
-  } catch {
-    return 'dark';
-  }
-}
-
 async function saveTheme(theme: AppTheme): Promise<void> {
   try {
     await SecureStore.setItemAsync(THEME_KEY, theme);

@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from app.tasks.notification_tasks import (
     process_notifications_task,
     _fetch_batch,
-    _send_and_update,
+    _dispatch_one,
 )
 from app.models.notification import Notification
 from app.core.enums import NotificationStatus
@@ -114,7 +114,7 @@ def test_send_and_update_success(mocker):
         "app.tasks.notification_tasks._dispatch"
     )
 
-    _send_and_update(10)
+    _dispatch_one(10)
 
     dispatch_mock.assert_called_once()
     assert notification.status == NotificationStatus.SENT
@@ -146,7 +146,7 @@ def test_send_and_update_failure_increments_retry(mocker):
         side_effect=Exception("Provider failure"),
     )
 
-    _send_and_update(11)
+    _dispatch_one(11)
 
     assert notification.retry_count == 1
     assert notification.status == NotificationStatus.FAILED
@@ -182,7 +182,7 @@ def test_send_and_update_moves_to_failed(mocker):
         "app.tasks.notification_tasks.logger.error"
     )
 
-    _send_and_update(12)
+    _dispatch_one(12)
 
     assert notification.retry_count == 5
     assert notification.status == NotificationStatus.FAILED
@@ -203,6 +203,6 @@ def test_send_and_update_notification_not_found(mocker):
         return_value=mock_db,
     )
 
-    _send_and_update(999)
+    _dispatch_one(999)
 
     mock_db.commit.assert_not_called()

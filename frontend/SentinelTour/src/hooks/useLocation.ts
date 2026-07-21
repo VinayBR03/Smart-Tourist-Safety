@@ -5,7 +5,7 @@ import { locationApi } from '@/api/location';
 import { locationService } from '@/services/locationService';
 import { useAuthStore } from '@/store/authStore';
 import { useDeviceStore } from '@/store/deviceStore';
-import type { LocationResponse, LocationUpdateRequest } from '@/types/api';
+import type { LocationUpdateRequest } from '@/types/api';
 
 // ─── Fetch my latest stored location ─────────────────────
 export function useMyLocation() {
